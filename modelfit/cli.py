@@ -14,7 +14,7 @@ from . import score
 from .providers import EFFORT_BUDGETS, MODELS
 from .report import write_csv, write_markdown, write_pareto_png
 from .runner import run
-from .tasks import ALL_TASKS
+from .tasks import load_tasks
 
 
 def _print_summary(picks: list[score.QuadrantPick], front: list[score.ConfigStat]) -> None:
@@ -51,6 +51,7 @@ def main(argv: list[str] | None = None) -> int:
         help="repeats per cell (reliability estimate). default: 8 mock, 1 real",
     )
     r.add_argument("--out", default="reports")
+    r.add_argument("--tasks", default="tasks", help="directory of *.yaml task files")
     r.add_argument("--no-cache", action="store_true")
 
     args = ap.parse_args(argv)
@@ -65,15 +66,22 @@ def main(argv: list[str] | None = None) -> int:
     if bad_efforts:
         ap.error(f"unknown effort(s) {bad_efforts}; choose from {list(EFFORT_BUDGETS)}")
 
+    all_tasks = load_tasks(args.tasks)
+    if not all_tasks:
+        ap.error(
+            f"no *.yaml task files found in {args.tasks!r}. "
+            "Add one (see the bundled examples in tasks/) or pass --tasks <dir>."
+        )
+
     mode = "real" if args.real else "mock"
     trials = args.trials if args.trials is not None else (1 if mode == "real" else 8)
     print(
-        f"Running {len(ALL_TASKS)} tasks x {len(args.models)} models x "
+        f"Running {len(all_tasks)} tasks x {len(args.models)} models x "
         f"{len(args.efforts)} efforts x {trials} trials in {mode.upper()} mode..."
     )
 
     results = run(
-        ALL_TASKS,
+        all_tasks,
         args.models,
         args.efforts,
         mode=mode,

@@ -1,0 +1,21 @@
+# BOTH: multi-step change with several constraints at once.
+id: idempotent_tagger
+quadrant: BOTH
+prompt: |-
+  Rewrite `apply_tags(existing, new)` so that ALL of the following hold:
+  1. It MERGES new tags into existing (does not replace the dict).
+  2. It is idempotent: applying the same new tags twice == applying once.
+  3. It NEVER mutates the caller's `existing` dict (returns a new dict).
+  4. If a key exists in both, `new` wins.
+  5. Keys are returned sorted.
+  Return ONLY the function.
+verifier: verify_python_callable
+fixture:
+  callable: apply_tags
+  tests:
+    - "e = {'team': 'platform'}; out = apply_tags(e, {'env': 'prod'})"
+    - "assert out == {'env': 'prod', 'team': 'platform'}"
+    - "assert e == {'team': 'platform'}  # not mutated"
+    - "assert apply_tags(e, {'env':'prod'}) == apply_tags(apply_tags(e,{'env':'prod'}), {'env':'prod'})"
+    - "assert apply_tags({'a':'1'}, {'a':'2'}) == {'a':'2'}"
+    - "assert list(apply_tags({'z':'1'}, {'a':'2'}).keys()) == ['a','z']"

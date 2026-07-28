@@ -23,12 +23,14 @@ worthless. If a task can't be checked deterministically, reshape the task until
 it can — that discipline *is* the product, not a limitation of it.
 
 ## Architecture (where things live)
-Data flows: `tasks` → `runner` (sweeps model × effort × trials) → `verifiers`
-(deterministic pass/fail) → `score` (aggregate) → `report` (artifact).
+Data flows: `tasks/*.yaml` → `tasks.py` (loads + validates) → `runner` (sweeps
+model × effort × trials) → `verifiers` (deterministic pass/fail) → `score`
+(aggregate) → `report` (artifact).
 
 | File | Responsibility |
 |---|---|
-| `modelfit/tasks.py` | Task definitions, quadrant tags, ground-truth fixtures. **The file you edit to make it yours.** |
+| `tasks/*.yaml` | One task per file: id, quadrant tag, prompt, verifier name, fixture. **What you edit to make it yours — no Python required.** |
+| `modelfit/tasks.py` | `Task` dataclass + `load_tasks(directory)`: reads and validates the YAML files above. |
 | `modelfit/verifiers.py` | Deterministic checks. `verify_json_equals`, `verify_finding_set`, `verify_python_callable`. |
 | `modelfit/providers.py` | The two dials: `MODELS` (tiers), `EFFORT_BUDGETS`, `PRICING`, `call_real` (Anthropic), `call_mock` (deterministic). |
 | `modelfit/runner.py` | Sweeps the grid, repeats each cell `--trials` times, caches results additively. |
@@ -41,9 +43,10 @@ Data flows: `tasks` → `runner` (sweeps model × effort × trials) → `verifie
 python -m modelfit.cli run --mock                 # deterministic offline demo, no key
 python -m modelfit.cli run --real --models ...     # real Anthropic calls (needs ANTHROPIC_API_KEY)
 python -m modelfit.cli run --mock --trials 20      # more repeats = tighter reliability estimate
+python -m modelfit.cli run --mock --tasks my_tasks # point at a different tasks/ directory
 ```
-Outputs land in `reports/`. There is no test suite yet; if you add one, prefer
-`pytest`, and test the verifiers hardest (they are the trust anchor).
+Outputs land in `reports/`. Tests live in `tests/` (pytest); test the
+verifiers hardest — they are the trust anchor.
 
 ## Non-negotiable invariants
 Each rule is followed by the failure it prevents.
@@ -79,14 +82,16 @@ Each rule is followed by the failure it prevents.
    machine-checkable and singular. Reuse an existing verifier where possible; add
    a new one to `verifiers.REGISTRY` only if genuinely needed, and keep it
    deterministic.
-4. Append the `Task` to `ALL_TASKS`.
+4. Create `tasks/<id>.yaml` with `id`, `quadrant`, `prompt`, `verifier`, `fixture`
+   (`max_tokens` optional). No Python required — `load_tasks` validates it.
 
 A task without a deterministic check does not get merged. If you can't express
 "correct" as an assertion, that's a signal the task is underspecified — fix that
 first.
 
 ## Conventions
-- Python 3.12, standard library first. Dataclasses + type hints throughout.
+- Python 3.12, standard library first except `pyyaml` (task files) and the
+  import-guarded optionals below. Dataclasses + type hints throughout.
 - No web frameworks, no ORM, no config framework. Keep it a small, readable tool.
 - `matplotlib` is optional and import-guarded (chart is a nicety, not a
   dependency). `anthropic` is imported lazily and only used under `--real`.

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from modelfit.cli import main
+
+_TASKS_DIR = Path(__file__).resolve().parent.parent / "tasks"
 
 
 def test_unknown_model_exits_with_clear_error(capsys):
@@ -19,6 +23,13 @@ def test_unknown_effort_exits_with_clear_error(capsys):
     assert "unknown effort" in capsys.readouterr().err
 
 
+def test_missing_tasks_dir_exits_with_clear_error(tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["run", "--mock", "--no-cache", "--tasks", str(tmp_path / "nope")])
+    assert exc.value.code == 2
+    assert "no *.yaml task files found" in capsys.readouterr().err
+
+
 def test_valid_mock_run_writes_report(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     rc = main(
@@ -32,6 +43,8 @@ def test_valid_mock_run_writes_report(tmp_path, monkeypatch):
             "off",
             "--trials",
             "1",
+            "--tasks",
+            str(_TASKS_DIR),
             "--out",
             str(tmp_path / "out"),
         ]

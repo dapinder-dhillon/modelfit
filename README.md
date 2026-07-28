@@ -73,23 +73,42 @@ CI (`.github/workflows/ci.yml`) runs all four on every push and PR.
 
 ## Make it yours (this is the actual point)
 
-The bundled tasks are toys chosen to span four quadrants. **Delete them.** Open
-`tasks.py` and drop in ~20 real tasks from your backlog, each with a deterministic
-check:
+The bundled tasks in `tasks/` are toys chosen to span four quadrants. **Delete
+them** and drop in ~20 real tasks from your backlog instead — no Python
+required, each is just a YAML file:
+
+```yaml
+# tasks/my_real_task.yaml
+id: my_real_task
+quadrant: EFFORT              # NEITHER | EFFORT | MODEL | BOTH
+prompt: |
+  Whatever you'd actually ask a model to do.
+verifier: verify_python_callable
+fixture:
+  callable: some_function
+  tests:
+    - "assert some_function(1) == 2"
+```
+
+Pick a verifier and give it a deterministic `fixture`:
 
 - code tasks → a few `assert`s run in a subprocess (`verify_python_callable`)
 - structured output → exact/structural compare (`verify_json_equals`)
 - judgement tasks → constrain the model to a fixed vocabulary and check the
   required items appear (`verify_finding_set`)
 
-Once the tasks are yours, the recommendation is yours — and defensible to anyone
-who says "just use the big one."
+`modelfit run` loads every `*.yaml` in `tasks/` automatically (point elsewhere
+with `--tasks <dir>`). Once the tasks are yours, the recommendation is yours —
+and defensible to anyone who says "just use the big one." If you need a
+genuinely new *kind* of check, that's the one place Python is still required:
+add a verifier to `modelfit/verifiers.py`.
 
 ## Layout
 
 ```
+tasks/*.yaml     # your tasks: id, quadrant, prompt, verifier, fixture  <- edit this
 modelfit/
-  tasks.py       # tasks + quadrant tags + ground-truth fixtures  <- edit this
+  tasks.py       # Task dataclass + load_tasks(): reads and validates tasks/*.yaml
   verifiers.py   # deterministic pass/fail checks
   providers.py   # model tiers, effort→budget, pricing, real call + mock
   runner.py      # sweeps the grid, caches results additively

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from modelfit import providers
 from modelfit.runner import run
-from modelfit.tasks import ALL_TASKS
+from modelfit.tasks import load_tasks
 
-_ONE_TASK = ALL_TASKS[:1]
+_TASKS_DIR = Path(__file__).resolve().parent.parent / "tasks"
+_ALL_TASKS = load_tasks(_TASKS_DIR)
+_ONE_TASK = _ALL_TASKS[:1]
 
 
 class TestCacheAdditivity:
@@ -101,7 +104,7 @@ class TestCacheAdditivity:
 class TestMockDeterminism:
     def test_two_full_runs_produce_identical_results(self, tmp_path):
         r1 = run(
-            ALL_TASKS,
+            _ALL_TASKS,
             ["claude-haiku-4-5", "claude-opus-4-8"],
             ["off", "high"],
             mode="mock",
@@ -109,7 +112,7 @@ class TestMockDeterminism:
             cache_path=None,
         )
         r2 = run(
-            ALL_TASKS,
+            _ALL_TASKS,
             ["claude-haiku-4-5", "claude-opus-4-8"],
             ["off", "high"],
             mode="mock",

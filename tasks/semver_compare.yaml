@@ -1,0 +1,18 @@
+# EFFORT: a self-contained logic bug. Needs working-out, not knowledge.
+id: semver_compare
+quadrant: EFFORT
+prompt: >-
+  Implement `semver_gt(a, b)` returning True if semantic version string a is
+  strictly greater than b. Handle major.minor.patch numerically (so '1.10.0'
+  > '1.9.0'). A version WITHOUT a pre-release ('1.0.0') is greater than the
+  same version WITH one ('1.0.0-rc1'). Ignore build metadata after '+'.
+  Return ONLY the function.
+verifier: verify_python_callable
+fixture:
+  callable: semver_gt
+  tests:
+    - "assert semver_gt('1.10.0', '1.9.0') is True"
+    - "assert semver_gt('1.0.0', '1.0.0-rc1') is True"
+    - "assert semver_gt('1.0.0-rc1', '1.0.0') is False"
+    - "assert semver_gt('2.0.0', '2.0.0') is False"
+    - "assert semver_gt('1.0.1+build9', '1.0.1') is False"

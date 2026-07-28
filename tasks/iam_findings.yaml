@@ -1,0 +1,12 @@
+# MODEL: breadth / judgement. Effort won't conjure knowledge it lacks.
+id: iam_findings
+quadrant: MODEL
+prompt: |-
+  Review this IAM policy and return a JSON array of issue codes present, chosen ONLY from this exact set: ["ADMIN_WILDCARD","RESOURCE_STAR","PRINCIPAL_STAR","PASSROLE_WILDCARD"]. Return ONLY the JSON array.
+
+  {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":["iam:*","iam:PassRole"],"Resource":"*"}]}
+verifier: verify_finding_set
+fixture:
+  # must catch all of these to pass
+  required: [ADMIN_WILDCARD, RESOURCE_STAR, PRINCIPAL_STAR, PASSROLE_WILDCARD]
+  vocab: [ADMIN_WILDCARD, RESOURCE_STAR, PRINCIPAL_STAR, PASSROLE_WILDCARD]
