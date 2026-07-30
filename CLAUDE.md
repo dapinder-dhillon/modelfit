@@ -23,9 +23,15 @@ worthless. If a task can't be checked deterministically, reshape the task until
 it can — that discipline *is* the product, not a limitation of it.
 
 ## Architecture (where things live)
-Data flows: `tasks/*.yaml` → `tasks.py` (loads + validates) → `runner` (sweeps
-model × effort × trials) → `verifiers` (deterministic pass/fail) → `score`
-(aggregate) → `report` (artifact).
+Two flows, deliberately separate.
+
+**Measure** (the evidence): `tasks/*.yaml` → `tasks.py` (loads + validates) →
+`runner` (sweeps model × effort × trials) → `verifiers` (deterministic pass/fail)
+→ `score` (aggregate) → `report` (artifact).
+
+**Advise** (the cheap first guess): task wording → `advisor.estimate` (regex
+signals only) → `advice_report` + `project` (artifacts) → `history` (local log,
+`lessons`). Graded by `evalset` against `eval/advisor_cases.yaml`.
 
 | File | Responsibility |
 |---|---|
@@ -36,14 +42,25 @@ model × effort × trials) → `verifiers` (deterministic pass/fail) → `score`
 | `modelfit/runner.py` | Sweeps the grid, repeats each cell `--trials` times, caches results additively. |
 | `modelfit/score.py` | `by_config`, `pareto`, `per_quadrant` — cost-per-solved and the per-task-type winner. |
 | `modelfit/report.py` | Writes `report.md`, `results.csv`, `pareto.png`. |
-| `modelfit/cli.py` | `python -m modelfit.cli run`. |
+| `modelfit/advisor.py` | `estimate(text)` → quadrant, plan, reasons, confidence, runner-up. Regex signals **only**. |
+| `modelfit/advice_report.py` | The written verdict for one advised task (`render` / `write`). |
+| `modelfit/project.py` | Projected pass-rate vs cost chart for one task; reuses `providers._pass_probability`. Optional matplotlib. |
+| `modelfit/history.py` | Appends each `advise` call to `~/.modelfit/history.json` (`MODELFIT_HOME` overrides); `lessons()`. |
+| `eval/advisor_cases.yaml` | Labelled advisor cases: `task`, `truth`, `adversarial`, `note`. Data, like tasks. |
+| `modelfit/evalset.py` | Loads those cases and scores the advisor (overall / clear / adversarial + misses). |
+| `modelfit/cli.py` | `run`, `advise`, `lessons`, `eval`. |
 
 ## Commands
 ```bash
-python -m modelfit.cli run --mock                 # deterministic offline demo, no key
+python -m modelfit.cli run --mock                  # deterministic offline demo, no key
 python -m modelfit.cli run --real --models ...     # real Anthropic calls (needs ANTHROPIC_API_KEY)
 python -m modelfit.cli run --mock --trials 20      # more repeats = tighter reliability estimate
 python -m modelfit.cli run --mock --tasks my_tasks # point at a different tasks/ directory
+
+python -m modelfit.cli advise "<task text>"        # which dial to turn, and why
+python -m modelfit.cli advise "<task>" --outcome pass --used-effort low
+python -m modelfit.cli lessons                     # shape distribution + recorded calibration
+python -m modelfit.cli eval                        # grade the advisor: overall/clear/adversarial
 ```
 Outputs land in `reports/`. Tests live in `tests/` (pytest); test the
 verifiers hardest — they are the trust anchor.
@@ -73,6 +90,24 @@ Each rule is followed by the failure it prevents.
 8. **Keep the sandbox boundary.** `verify_python_callable` runs generated code in
    a subprocess with a timeout. Do not switch to in-process `exec`/`eval` and do
    not remove the timeout. → generated code is untrusted.
+9. **The advisor never calls an LLM.** It classifies from wording with
+   deterministic regexes; same text in, same verdict out. → an advisor that asked
+   a model which model to use is circular, and breaks rule 1 by another door.
+10. **Every verdict prints WHY.** `estimate()` always returns non-empty `reasons`
+    naming the signals that fired. → an unexplained score is not arguable, and
+    arguing with it is how you find the wording it misread.
+11. **Silence is not evidence of ease.** When no signal fires, keep confidence
+    LOW and emit the blind-spot warning; never report "confident / easy". → the
+    hardest tasks (crypto, SQL tuning, timezones, concurrency) look plainest.
+12. **Hedge when unsure.** Weak or conflicting signals → lower confidence plus a
+    runner-up quadrant and a `distinguish_hint`. → a heuristic that hides its
+    uncertainty is worse than no heuristic.
+13. **`lessons` counts only recorded outcomes.** Never infer whether a
+    recommendation worked. → an inferred pass rate is exactly the soft number
+    this project exists to avoid.
+14. **Both eval splits stay published.** `modelfit eval` prints clear *and*
+    adversarial accuracy, and lists the misses. Don't delete failing adversarial
+    cases and don't blend the two into one number. → the gap is the caveat.
 
 ## Adding a task (the most common change)
 1. Pick the quadrant honestly (what would this task's failure blame — thinking or
@@ -88,6 +123,18 @@ Each rule is followed by the failure it prevents.
 A task without a deterministic check does not get merged. If you can't express
 "correct" as an assertion, that's a signal the task is underspecified — fix that
 first.
+
+## Touching the advisor
+Adding or changing a regex signal changes every past verdict, so:
+1. Say in one sentence which dial the signal implies and why. If you can't, it
+   isn't a signal.
+2. Add labelled cases to `eval/advisor_cases.yaml` — including the ones it gets
+   wrong, tagged `adversarial: true` with a `note` saying why.
+3. Run `modelfit eval` before and after. **Clear** accuracy is the bar (tests
+   assert ≥ 0.70). **Adversarial** accuracy is expected to be poor; if it jumps
+   to match clear accuracy, suspect the eval set went soft rather than the
+   advisor got smart.
+4. Never tune by deleting inconvenient cases.
 
 ## Conventions
 - Python 3.12, standard library first except `pyyaml` (task files) and the
@@ -106,6 +153,9 @@ first.
 - Don't merge `model` and `effort` into one dial.
 - Don't add heavy dependencies to shave a few lines.
 - Don't rewrite the cache destructively.
+- Don't let the advisor call a model, or let it claim confidence it hasn't earned.
+- Don't present `advise` output as evidence — it reads words, `run` measures.
+- Don't rewrite history destructively; `record` appends.
 
 ## When unsure
 Prefer the additive change. Keep every output defensible to a sceptic who says

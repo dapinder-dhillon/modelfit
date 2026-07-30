@@ -59,6 +59,75 @@ poetry run modelfit run --real --models claude-haiku-4-5 claude-sonnet-5 claude-
 Effort maps to Anthropic's `thinking` budget (`off`/`low`/`high`). The same idea
 is `reasoning_effort` on OpenAI — swap the adapter in `providers.py`.
 
+## Before you spend anything: `advise`
+
+Measuring is the answer, but it isn't the *first* question. The first question is
+"I have this one task in front of me — where do I start?" That's what `advise`
+is for: it reads the **wording** of a task and says which dial to reach for.
+
+```bash
+poetry run modelfit advise "Fix this retry helper so it never sleeps after the final attempt."
+```
+
+```
+=== EFFORT — self-contained logic — conditions to hold on to while you work ===
+  lever      : EFFORT
+  confidence : high (Signals agree and there are enough of them; ...)
+
+--- why (signals that fired) ---
+  - exception / negation wording ("never") → effort +2 — a condition to carry through ...
+  - ordered / multi-step wording ("after") → effort +2 — state has to survive ...
+
+--- start here ---
+  sonnet-5 at effort low
+  if it fails, escalate to: sonnet @ high effort
+```
+
+It also writes `reports/advice_<slug>.md` and a projection chart, and appends the
+call to `~/.modelfit/history.json` (local file, nothing leaves your machine).
+Record what actually happened and it feeds back:
+
+```bash
+poetry run modelfit advise "<task>" --outcome pass --used-effort low
+poetry run modelfit lessons     # your shape distribution + calibration from YOUR outcomes
+```
+
+### What `advise` is, honestly
+
+- **It reads words, not meaning.** "Optimise this SQL query" is six plain words
+  hiding real knowledge. It will call that NEITHER, and be wrong.
+- **No LLM is involved in the decision.** Deterministic regexes only — same text
+  in, same verdict out. An advisor that asked a model which model to use would be
+  circular, and would break the same rule the verifiers live by.
+- **It states its confidence and hedges.** Conflicting signals lower confidence
+  and print the runner-up quadrant plus how to tell the two apart from the
+  *failure* shape.
+- **Silence is not evidence of ease.** When nothing fires it does *not* say
+  "easy" — it says so, keeps confidence low, and names the blind spots (crypto,
+  SQL tuning, timezones/DST, concurrency).
+- **`lessons` counts only outcomes you recorded.** Never inferred.
+
+It's a second opinion to argue with, not an oracle. `modelfit run` is the evidence.
+
+### It grades itself
+
+```bash
+poetry run modelfit eval
+```
+
+Labelled cases live in `eval/advisor_cases.yaml` (data, same as tasks), split
+into *clear* wording and *adversarial* wording, and both numbers are printed:
+
+```
+  overall     : 0.60  (12/20)
+  clear       : 1.00  (10/10)  — does the mechanism work?
+  adversarial : 0.20  (2/10)   — how far wording is from meaning
+```
+
+The adversarial number is *meant* to be poor, and the misses are listed in full.
+That gap is the caveat made measurable; blending it into one headline accuracy
+would be the dishonest version of this tool.
+
 ## Development
 
 ```bash
@@ -106,15 +175,21 @@ add a verifier to `modelfit/verifiers.py`.
 ## Layout
 
 ```
-tasks/*.yaml     # your tasks: id, quadrant, prompt, verifier, fixture  <- edit this
+tasks/*.yaml             # your tasks: id, quadrant, prompt, verifier, fixture  <- edit this
+eval/advisor_cases.yaml  # labelled cases the advisor grades itself against
 modelfit/
-  tasks.py       # Task dataclass + load_tasks(): reads and validates tasks/*.yaml
-  verifiers.py   # deterministic pass/fail checks
-  providers.py   # model tiers, effort→budget, pricing, real call + mock
-  runner.py      # sweeps the grid, caches results additively
-  score.py       # cost-per-solved, Pareto frontier, per-quadrant winner
-  report.py      # markdown + CSV + Pareto PNG
-  cli.py         # `python -m modelfit.cli run`
+  tasks.py          # Task dataclass + load_tasks(): reads and validates tasks/*.yaml
+  verifiers.py      # deterministic pass/fail checks
+  providers.py      # model tiers, effort→budget, pricing, real call + mock
+  runner.py         # sweeps the grid, caches results additively
+  score.py          # cost-per-solved, Pareto frontier, per-quadrant winner
+  report.py         # markdown + CSV + Pareto PNG
+  advisor.py        # estimate(): regex signals -> quadrant + plan + confidence
+  advice_report.py  # the written verdict for one task
+  project.py        # projected pass-rate vs cost chart for one task
+  history.py        # ~/.modelfit/history.json + lessons()
+  evalset.py        # loads eval/advisor_cases.yaml, scores the advisor
+  cli.py            # `run` | `advise` | `lessons` | `eval`
 ```
 
 ## Honest caveats
@@ -124,3 +199,7 @@ modelfit/
   timeout. Fine for a local experiment on models you chose; isolate properly
   (container / nsjail) for anything untrusted or CI.
 - The mock's pass rates are illustrative. Only `--real` numbers are evidence.
+- `advise` is a heuristic over wording, not a measurement. It is deterministic and
+  it explains itself, but it cannot see difficulty the words don't carry — see its
+  own adversarial score in `modelfit eval`. The projection chart it draws is
+  modelled from the shape, not measured.

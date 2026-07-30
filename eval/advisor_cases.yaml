@@ -1,0 +1,142 @@
+# Labelled cases for the advisor's self-eval (`modelfit eval`).
+#
+# Data, not code — same principle as tasks/*.yaml. Each case is:
+#   task        : the wording a person would actually type
+#   truth       : the quadrant the task really is (NEITHER | EFFORT | MODEL | BOTH)
+#   adversarial : true when the wording actively misleads a word-reader
+#   note        : why this case is here — kept honest, including the ones it fails
+#
+# The `adversarial` split exists so the headline number can't hide the weakness:
+# clear cases measure whether the signals work; adversarial cases measure how far
+# wording is from meaning. Both numbers get printed. Do not delete the failures.
+
+# --------------------------------------------------------------------------- #
+# Clear cases: the wording genuinely reflects the shape.
+# --------------------------------------------------------------------------- #
+- task: Write a Dockerfile for a Python 3.12 Flask app that exposes port 8000.
+  truth: NEITHER
+  adversarial: false
+  note: Pure recall. Nothing to carry, nothing to judge.
+
+- task: Add a .gitignore file for a Node project.
+  truth: NEITHER
+  adversarial: false
+  note: Boilerplate. The cheapest config should already win.
+
+- task: Fix this retry helper so it never sleeps after the final attempt.
+  truth: EFFORT
+  adversarial: false
+  note: A negation plus an ordering constraint — deliberation, not knowledge.
+
+- task: >-
+    Implement a rate limiter that allows 10 requests per minute but never blocks
+    the first request in a new window.
+  truth: EFFORT
+  adversarial: false
+  note: Self-contained logic with an exception clause bolted on.
+
+- task: >-
+    Parse the log file, then group entries by hour, and finally emit a count per
+    hour, skipping malformed lines.
+  truth: EFFORT
+  adversarial: false
+  note: Ordered pipeline; state has to survive between steps.
+
+- task: Review this IAM policy and list the findings that make it insecure.
+  truth: MODEL
+  adversarial: false
+  note: Judgement over a domain the prompt does not teach.
+
+- task: Which database isolation level should we use for this booking flow, and why?
+  truth: MODEL
+  adversarial: false
+  note: A knowledge call. More thinking time does not supply the answer.
+
+- task: Assess whether this caching design risks stale reads.
+  truth: MODEL
+  adversarial: false
+  note: Evaluation of a design — talent, not deliberation.
+
+- task: >-
+    Refactor the payment module across all three services so no service calls the
+    legacy gateway directly, then migrate the remaining callers and update the
+    integration tests.
+  truth: BOTH
+  adversarial: false
+  note: Wide surface, ordered steps, and a hard constraint throughout.
+
+- task: |-
+    Migrate the entire codebase from requests to httpx:
+    1. update all call sites
+    2. preserve the existing retry behaviour
+    3. do not change any public function signature
+  truth: BOTH
+  adversarial: false
+  note: Breadth plus an explicit requirement list plus a negation.
+
+# --------------------------------------------------------------------------- #
+# Adversarial cases: where reading words instead of meaning goes wrong. Most of
+# these are expected MISSES — they are the tool's honest error bar, kept in the
+# suite on purpose.
+# --------------------------------------------------------------------------- #
+- task: Implement RS256 JWT signature verification.
+  truth: MODEL
+  adversarial: true
+  note: >-
+    Crypto. Reads as routine; getting it wrong (algorithm confusion, accepting
+    alg=none) is a security bug. No signal fires.
+
+- task: Optimise this SQL query.
+  truth: MODEL
+  adversarial: true
+  note: Index and query-plan knowledge, four plain words. No signal fires.
+
+- task: Handle daylight-saving transitions when computing a duration between two timestamps.
+  truth: MODEL
+  adversarial: true
+  note: Timezone edge cases are knowledge; the wording is calm and short.
+
+- task: Make this counter thread-safe.
+  truth: MODEL
+  adversarial: true
+  note: Concurrency. Four words hiding memory-model knowledge.
+
+- task: Store user passwords in the users table.
+  truth: MODEL
+  adversarial: true
+  note: Reads as CRUD; the real content is hashing, salting and cost factors.
+
+- task: Add a retry with exponential backoff and jitter.
+  truth: EFFORT
+  adversarial: true
+  note: >-
+    The off-by-one on the final attempt and the jitter bounds are real
+    deliberation, but nothing in the sentence says so.
+
+- task: Return the list without duplicates.
+  truth: NEITHER
+  adversarial: true
+  note: >-
+    FALSE TRIGGER — "without" is a preposition here, not a constraint. The
+    advisor over-reads it as EFFORT.
+
+- task: Review the array and return it sorted.
+  truth: NEITHER
+  adversarial: true
+  note: >-
+    FALSE TRIGGER — "review" is filler, not a judgement call. The advisor
+    over-reads it as MODEL.
+
+- task: Rewrite this hot loop so it never allocates.
+  truth: EFFORT
+  adversarial: true
+  note: >-
+    Caught, and for the right reason: the "never" really is the constraint that
+    makes the task hard.
+
+- task: Audit these third-party dependencies for known CVEs.
+  truth: MODEL
+  adversarial: true
+  note: >-
+    Caught: "audit" is a genuine judgement verb here, not filler. Compare with
+    the "review the array" case, where the same class of word means nothing.

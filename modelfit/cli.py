@@ -1,16 +1,25 @@
 """
-CLI:  python -m modelfit.cli run [--mock|--real] [--models ...] [--efforts ...]
+CLI:
+  python -m modelfit.cli run    [--mock|--real] [--models ...] [--efforts ...]
+  python -m modelfit.cli advise "<task text>" [--out ...] [--chart ...]
+  python -m modelfit.cli lessons
+  python -m modelfit.cli eval
 
---mock (default) runs with no API key and produces a deterministic sample report.
---real calls the Anthropic API (needs `pip install anthropic` and ANTHROPIC_API_KEY).
+`run` measures: it sweeps model x effort over your tasks and reports
+cost-per-solved. `advise` guesses, cheaply and deterministically, from the
+wording of a single task — no model is called to decide, and it prints the
+signals it used plus how sure it is. `eval` grades the guesser against labelled
+cases so the guessing is accountable.
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 
-from . import score
+from . import advice_report, advisor, history, project, score
+from .evalset import evaluate
 from .providers import EFFORT_BUDGETS, MODELS
 from .report import write_csv, write_markdown, write_pareto_png
 from .runner import run
@@ -34,31 +43,14 @@ def _print_summary(picks: list[score.QuadrantPick], front: list[score.ConfigStat
     print()
 
 
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="modelfit")
-    sub = ap.add_subparsers(dest="cmd", required=True)
+def _slug(text: str, words: int = 6) -> str:
+    """A stable, filesystem-safe stem for a task's report/chart pair."""
+    cleaned = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+    stem = "_".join(cleaned.split("_")[:words])[:60]
+    return stem or "task"
 
-    r = sub.add_parser("run", help="run the model x effort sweep and write a report")
-    g = r.add_mutually_exclusive_group()
-    g.add_argument("--mock", action="store_true", help="deterministic offline demo (default)")
-    g.add_argument("--real", action="store_true", help="call the Anthropic API")
-    r.add_argument("--models", nargs="+", default=list(MODELS.keys()))
-    r.add_argument("--efforts", nargs="+", default=list(EFFORT_BUDGETS.keys()))
-    r.add_argument(
-        "--trials",
-        type=int,
-        default=None,
-        help="repeats per cell (reliability estimate). default: 8 mock, 1 real",
-    )
-    r.add_argument("--out", default="reports")
-    r.add_argument("--tasks", default="tasks", help="directory of *.yaml task files")
-    r.add_argument("--no-cache", action="store_true")
 
-    args = ap.parse_args(argv)
-    if args.cmd != "run":
-        ap.print_help()
-        return 1
-
+def _cmd_run(args: argparse.Namespace, ap: argparse.ArgumentParser) -> int:
     bad_models = [m for m in args.models if m not in MODELS]
     if bad_models:
         ap.error(f"unknown model(s) {bad_models}; choose from {list(MODELS)}")
@@ -102,6 +94,160 @@ def main(argv: list[str] | None = None) -> int:
         + (", pareto.png" if has_png else " (install matplotlib for the chart)")
     )
     return 0
+
+
+def _cmd_advise(args: argparse.Namespace, ap: argparse.ArgumentParser) -> int:
+    text = args.text.strip()
+    if not text:
+        ap.error('give me a task to read, e.g. modelfit advise "refactor the auth module"')
+
+    est = advisor.estimate(text)
+    stem = _slug(text)
+    out_path = args.out or f"reports/advice_{stem}.md"
+    chart_path = args.chart or f"reports/advice_{stem}.png"
+
+    print(f"\n=== {est.quadrant} — {est.shape} ===")
+    print(f"  lever      : {est.lever}")
+    print(f"  confidence : {est.confidence} ({advisor.confidence_note(est.confidence)})")
+    print(f"  scores     : effort {est.effort_score}, model {est.model_score}")
+
+    print("\n--- why (signals that fired) ---")
+    for reason in est.reasons:
+        print(f"  - {reason}")
+
+    print("\n--- start here ---")
+    print(f"  {est.start_model.replace('claude-','')} at effort {est.start_effort}")
+    if est.escalate_to:
+        print(f"  if it fails, escalate to: {est.escalate_to}")
+
+    if est.confidence != "high" and est.runner_up:
+        alt_model, alt_effort, _ = advisor.plan_for(est.runner_up)
+        print("\n--- not fully sure: second option ---")
+        print(
+            f"  could also be {est.runner_up} "
+            f"({alt_model.replace('claude-','')} at effort {alt_effort})"
+        )
+        print(f"  how to tell : {advisor.distinguish_hint(est.runner_up)}")
+
+    if est.hidden_knowledge_warning:
+        print("\n--- blind spot ---")
+        print(
+            "  Nothing in the wording signals difficulty, which is exactly where this tool\n"
+            "  is weakest. Plain phrasing hides hard knowledge: "
+            + ", ".join(advisor.BLIND_SPOTS)
+            + ".\n  If that's the subject matter, override this and start higher."
+        )
+
+    print(f"\n{advisor.teach_line(est)}")
+
+    has_png = project.chart(est, chart_path)
+    chart_rel = chart_path.rsplit("/", 1)[-1] if has_png else None
+    written = advice_report.write(est, out_path, chart_rel)
+    log = history.record(est, outcome=args.outcome, used_effort=args.used_effort)
+
+    print(
+        f"\nWrote {written}"
+        + (f", {chart_path}" if has_png else " (install matplotlib for the chart)")
+        + f"; logged to {log}"
+    )
+    if args.outcome:
+        print(f"Recorded outcome: {args.outcome}. `modelfit lessons` counts it.")
+    return 0
+
+
+def _cmd_lessons(args: argparse.Namespace, ap: argparse.ArgumentParser) -> int:
+    print("\n=== Lessons from your own advice history ===")
+    for lesson in history.lessons():
+        print(f"  - {lesson}")
+    print()
+    return 0
+
+
+def _cmd_eval(args: argparse.Namespace, ap: argparse.ArgumentParser) -> int:
+    result = evaluate()
+    if result.total == 0:
+        ap.error("no labelled cases found (expected eval/advisor_cases.yaml)")
+
+    print("\n=== Advisor self-eval (deterministic, exact quadrant match) ===")
+    print(f"  overall     : {result.overall_accuracy:.2f}  ({result.correct}/{result.total})")
+    print(
+        f"  clear       : {result.clear_accuracy:.2f}  "
+        f"({result.clear_correct}/{result.clear_total})  — does the mechanism work?"
+    )
+    print(
+        f"  adversarial : {result.adversarial_accuracy:.2f}  "
+        f"({result.adversarial_correct}/{result.adversarial_total})  — how far wording is "
+        "from meaning"
+    )
+
+    if result.misses:
+        print("\n--- misses (kept on purpose; this is the error bar) ---")
+        for m in result.misses:
+            tag = "adversarial" if m.adversarial else "CLEAR"
+            print(f"  [{tag}] said {m.predicted}, truth {m.truth}: {m.task.splitlines()[0]}")
+            if m.note:
+                print(f"      {m.note.strip()}")
+
+    print(
+        "\nThe adversarial number is meant to be poor. A word-reader cannot see difficulty "
+        "that the words don't carry —\nthat gap is the caveat, so it is printed, not blended "
+        "away.\n"
+    )
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="modelfit")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    r = sub.add_parser("run", help="run the model x effort sweep and write a report")
+    g = r.add_mutually_exclusive_group()
+    g.add_argument("--mock", action="store_true", help="deterministic offline demo (default)")
+    g.add_argument("--real", action="store_true", help="call the Anthropic API")
+    r.add_argument("--models", nargs="+", default=list(MODELS.keys()))
+    r.add_argument("--efforts", nargs="+", default=list(EFFORT_BUDGETS.keys()))
+    r.add_argument(
+        "--trials",
+        type=int,
+        default=None,
+        help="repeats per cell (reliability estimate). default: 8 mock, 1 real",
+    )
+    r.add_argument("--out", default="reports")
+    r.add_argument("--tasks", default="tasks", help="directory of *.yaml task files")
+    r.add_argument("--no-cache", action="store_true")
+
+    a = sub.add_parser("advise", help="read one task's wording and say which dial to turn")
+    a.add_argument("text", help="the task, in the words you'd actually use")
+    a.add_argument("--out", default=None, help="markdown path (default: reports/advice_*.md)")
+    a.add_argument("--chart", default=None, help="chart path (default: reports/advice_*.png)")
+    a.add_argument(
+        "--outcome",
+        choices=list(history.OUTCOMES),
+        default=None,
+        help="record what actually happened at the advised start (feeds `lessons`)",
+    )
+    a.add_argument(
+        "--used-effort",
+        choices=list(EFFORT_BUDGETS.keys()),
+        default=None,
+        help="the effort you actually used, recorded alongside the outcome",
+    )
+
+    sub.add_parser("lessons", help="what your own advice history says about your work")
+    sub.add_parser("eval", help="grade the advisor against labelled cases")
+
+    args = ap.parse_args(argv)
+    handlers = {
+        "run": _cmd_run,
+        "advise": _cmd_advise,
+        "lessons": _cmd_lessons,
+        "eval": _cmd_eval,
+    }
+    handler = handlers.get(args.cmd)
+    if handler is None:
+        ap.print_help()
+        return 1
+    return handler(args, ap)
 
 
 if __name__ == "__main__":

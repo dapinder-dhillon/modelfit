@@ -30,6 +30,45 @@ def test_missing_tasks_dir_exits_with_clear_error(tmp_path, capsys):
     assert "no *.yaml task files found" in capsys.readouterr().err
 
 
+def test_advise_prints_verdict_and_writes_artifacts(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MODELFIT_HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_path)
+    rc = main(["advise", "Fix this retry helper so it never sleeps after the final attempt."])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "EFFORT" in out
+    assert "why (signals that fired)" in out
+    assert "start here" in out
+    assert list((tmp_path / "reports").glob("advice_*.md"))
+    assert (tmp_path / "home" / "history.json").exists()
+
+
+def test_advise_on_plain_wording_warns_instead_of_claiming_easy(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MODELFIT_HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_path)
+    rc = main(["advise", "Add a .gitignore file for a Node project.", "--outcome", "pass"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "confidence : low" in out
+    assert "blind spot" in out
+    assert "Recorded outcome: pass" in out
+
+
+def test_lessons_reads_only_recorded_outcomes(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MODELFIT_HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_path)
+    main(["advise", "Optimise this SQL query."])
+    assert main(["lessons"]) == 0
+    assert "0 outcomes recorded" in capsys.readouterr().out
+
+
+def test_eval_prints_both_splits(capsys):
+    assert main(["eval"]) == 0
+    out = capsys.readouterr().out
+    assert "clear" in out and "adversarial" in out
+    assert "misses" in out
+
+
 def test_valid_mock_run_writes_report(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     rc = main(
