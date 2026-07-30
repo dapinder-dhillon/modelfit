@@ -59,6 +59,46 @@ poetry run modelfit run --real --models claude-haiku-4-5 claude-sonnet-5 claude-
 Effort maps to Anthropic's `thinking` budget (`off`/`low`/`high`). The same idea
 is `reasoning_effort` on OpenAI — swap the adapter in `providers.py`.
 
+## Run it through a CLI you're already logged into
+
+A third mode shells out to an already-authenticated agent CLI (`claude -p` or
+`codex exec`) instead of the SDK, so auth lives wherever that CLI already
+logged in — **no API key is read or stored by modelfit.**
+
+```bash
+poetry run modelfit run --via-cli claude --models claude-haiku-4-5 claude-sonnet-5
+poetry run modelfit run --via-cli codex --models gpt-5.1 --efforts off low
+```
+
+This spends real quota, so it asks first:
+
+```
+About to make 12 real CLI calls via claude. Continue? [y/N]
+```
+
+Pass `--yes` to skip the prompt in a script. For `codex`, pass `--models` with
+GPT ids — the `--models` default is Anthropic's own table, which only makes
+sense for `claude`.
+
+**This mode degrades honestly instead of faking precision:**
+
+- **Effort isn't always controllable.** `claude -p --effort` has no off/none
+  level, so requesting `off` there can't be pinned — the report shows that run's
+  effort as `n/a`, never a number implying control that wasn't there. `codex`'s
+  `model_reasoning_effort` does have a `none` level, so `off` **is** controlled
+  there.
+- **Cost isn't always knowable.** When the CLI reports a cost or token usage, it's
+  used (falling back to the same placeholder `PRICING` table the other modes use
+  if only token counts came back). When it reports neither, `cost_usd` is `None`
+  and the report shows `$/solved` as `n/a` rather than inventing a number.
+- **It's directional, not precise.** The CLI may inject its own system prompt,
+  tools, or context you don't control, so "same task in" is less tightly
+  controlled than the SDK path — the report says so once, up top.
+
+All tool use is disabled for the call itself (`--tools ""` for claude,
+`--sandbox read-only --ask-for-approval never` for codex) — a benchmark run is
+one completion, not an agentic turn that should be touching your filesystem.
+
 ## Before you spend anything: `advise`
 
 Measuring is the answer, but it isn't the *first* question. The first question is
@@ -180,7 +220,7 @@ eval/advisor_cases.yaml  # labelled cases the advisor grades itself against
 modelfit/
   tasks.py          # Task dataclass + load_tasks(): reads and validates tasks/*.yaml
   verifiers.py      # deterministic pass/fail checks
-  providers.py      # model tiers, effort→budget, pricing, real call + mock
+  providers.py      # model tiers, effort→budget, pricing, real call, mock, CLI-mode adapter
   runner.py         # sweeps the grid, caches results additively
   score.py          # cost-per-solved, Pareto frontier, per-quadrant winner
   report.py         # markdown + CSV + Pareto PNG
@@ -198,7 +238,11 @@ modelfit/
 - `verify_python_callable` executes generated code in a subprocess with a
   timeout. Fine for a local experiment on models you chose; isolate properly
   (container / nsjail) for anything untrusted or CI.
-- The mock's pass rates are illustrative. Only `--real` numbers are evidence.
+- The mock's pass rates are illustrative. Only `--real`/`--via-cli` numbers are evidence.
+- `--via-cli` is directional, not precise: the CLI may inject its own system
+  prompt/tools/context, effort isn't controllable on every agent for every
+  level, and cost is `n/a` whenever the CLI didn't report usage. See "Run it
+  through a CLI you're already logged into" above.
 - `advise` is a heuristic over wording, not a measurement. It is deterministic and
   it explains itself, but it cannot see difficulty the words don't carry — see its
   own adversarial score in `modelfit eval`. The projection chart it draws is

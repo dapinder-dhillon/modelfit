@@ -38,7 +38,7 @@ signals only) → `advice_report` + `project` (artifacts) → `history` (local l
 | `tasks/*.yaml` | One task per file: id, quadrant tag, prompt, verifier name, fixture. **What you edit to make it yours — no Python required.** |
 | `modelfit/tasks.py` | `Task` dataclass + `load_tasks(directory)`: reads and validates the YAML files above. |
 | `modelfit/verifiers.py` | Deterministic checks. `verify_json_equals`, `verify_finding_set`, `verify_python_callable`. |
-| `modelfit/providers.py` | The two dials: `MODELS` (tiers), `EFFORT_BUDGETS`, `PRICING`, `call_real` (Anthropic), `call_mock` (deterministic). |
+| `modelfit/providers.py` | The two dials: `MODELS` (tiers), `EFFORT_BUDGETS`, `PRICING`, `call_real` (Anthropic), `call_mock` (deterministic), `call_cli` (shells out to `claude`/`codex`, degrades honestly). |
 | `modelfit/runner.py` | Sweeps the grid, repeats each cell `--trials` times, caches results additively. |
 | `modelfit/score.py` | `by_config`, `pareto`, `per_quadrant` — cost-per-solved and the per-task-type winner. |
 | `modelfit/report.py` | Writes `report.md`, `results.csv`, `pareto.png`. |
@@ -54,6 +54,8 @@ signals only) → `advice_report` + `project` (artifacts) → `history` (local l
 ```bash
 python -m modelfit.cli run --mock                  # deterministic offline demo, no key
 python -m modelfit.cli run --real --models ...     # real Anthropic calls (needs ANTHROPIC_API_KEY)
+python -m modelfit.cli run --via-cli claude ...    # shells out to an already-logged-in claude CLI
+python -m modelfit.cli run --via-cli codex --models gpt-5.1 ...  # or codex; needs GPT model ids
 python -m modelfit.cli run --mock --trials 20      # more repeats = tighter reliability estimate
 python -m modelfit.cli run --mock --tasks my_tasks # point at a different tasks/ directory
 
@@ -108,6 +110,17 @@ Each rule is followed by the failure it prevents.
 14. **Both eval splits stay published.** `modelfit eval` prints clear *and*
     adversarial accuracy, and lists the misses. Don't delete failing adversarial
     cases and don't blend the two into one number. → the gap is the caveat.
+15. **CLI mode never fakes what it can't control.** If an agent CLI can't pin the
+    requested effort level, `call_cli` reports that run's effort as `"n/a"`, not
+    the requested value. → a fabricated effort number would look like evidence
+    the tool controlled a dial it didn't.
+16. **CLI mode never fakes what it can't measure.** If the CLI doesn't report
+    token usage or a cost, `Result.cost_usd` is `None` and the report renders
+    `$/solved` as `n/a` — it does not fall back to guessing. → an invented cost
+    figure defeats the whole cost-per-solved metric.
+17. **No API key touches CLI mode.** `call_cli` shells out to a CLI that is
+    already authenticated; modelfit never reads, stores, or forwards a key for
+    this path. → the entire point of this mode is auth living somewhere else.
 
 ## Adding a task (the most common change)
 1. Pick the quadrant honestly (what would this task's failure blame — thinking or
@@ -156,6 +169,10 @@ Adding or changing a regex signal changes every past verdict, so:
 - Don't let the advisor call a model, or let it claim confidence it hasn't earned.
 - Don't present `advise` output as evidence — it reads words, `run` measures.
 - Don't rewrite history destructively; `record` appends.
+- Don't let `call_cli` pretend it pinned an effort level or knows a cost it
+  doesn't — report `"n/a"`/`None`, never a guess dressed up as a number.
+- Don't have modelfit read, store, or forward an API key for CLI mode — that's
+  the one thing this mode exists to avoid.
 
 ## When unsure
 Prefer the additive change. Keep every output defensible to a sceptic who says

@@ -17,8 +17,8 @@ from .runner import Result
 from .score import ConfigStat, QuadrantPick
 
 
-def _money(x: float) -> str:
-    if x == math.inf:
+def _money(x: float | None) -> str:
+    if x is None or x == math.inf:
         return "n/a"
     return f"${x:.5f}" if x < 0.01 else f"${x:.4f}"
 
@@ -68,16 +68,19 @@ def write_pareto_png(stats: list[ConfigStat], front: list[ConfigStat], path: str
     except Exception:
         return False
 
-    plotted = [s for s in stats if s.cost_per_solved != math.inf]
+    plotted = [s for s in stats if s.cost_per_solved is not None and s.cost_per_solved != math.inf]
     if not plotted:
         return False
     front_ids = {(s.model, s.effort) for s in front}
 
     fig, ax = plt.subplots(figsize=(8, 5.5))
     for s in plotted:
+        cost = s.cost_per_solved
+        if cost is None:  # excluded by `plotted`'s filter; narrows the type for mypy
+            continue
         on_front = (s.model, s.effort) in front_ids
         ax.scatter(
-            s.cost_per_solved * 100,
+            cost * 100,
             s.pass_rate * 100,
             s=90,
             zorder=3,
@@ -87,7 +90,7 @@ def write_pareto_png(stats: list[ConfigStat], front: list[ConfigStat], path: str
         )
         ax.annotate(
             f"{s.model.replace('claude-','')}\n{s.effort}",
-            (s.cost_per_solved * 100, s.pass_rate * 100),
+            (cost * 100, s.pass_rate * 100),
             fontsize=7,
             ha="center",
             va="bottom",
@@ -95,10 +98,15 @@ def write_pareto_png(stats: list[ConfigStat], front: list[ConfigStat], path: str
             textcoords="offset points",
         )
 
-    fx = sorted(front, key=lambda s: s.cost_per_solved)
+    plottable_front: list[tuple[float, float]] = [
+        (s.cost_per_solved * 100, s.pass_rate * 100)
+        for s in front
+        if s.cost_per_solved is not None and s.cost_per_solved != math.inf
+    ]
+    plottable_front.sort(key=lambda point: point[0])
     ax.plot(
-        [s.cost_per_solved * 100 for s in fx],
-        [s.pass_rate * 100 for s in fx],
+        [x for x, _ in plottable_front],
+        [y for _, y in plottable_front],
         color="#c0392b",
         lw=1.2,
         ls="--",
@@ -130,6 +138,21 @@ def write_markdown(
     lines: list[str] = []
     lines.append("# modelfit report\n")
     lines.append(f"_Mode: **{mode}**. Cost is per **solved** task, not per token._\n")
+
+    if mode.startswith("cli"):
+        lines.append(
+            "> **CLI mode caveat:** these runs went through an already-authenticated agent CLI, "
+            "not the API directly. That CLI can inject its own system prompt, tools, or context "
+            'you don\'t control, so "same task in" is directional here, not as tightly '
+            "controlled as the SDK path. `$/solved` shows `n/a` wherever the CLI didn't report "
+            "token usage.\n"
+        )
+        if any(s.effort == "n/a" for s in stats):
+            lines.append(
+                "> The **effort axis is not controlled** for at least one row below — this agent "
+                "has no equivalent for the requested level, so those rows report effort `n/a` "
+                "rather than a number that would imply control that wasn't there.\n"
+            )
 
     lines.append("## The verdict, by task type\n")
     lines.append("What the failure shape tells you to turn — read straight off the data.\n")

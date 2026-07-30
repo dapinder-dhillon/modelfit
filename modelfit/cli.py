@@ -1,15 +1,19 @@
 """
 CLI:
-  python -m modelfit.cli run    [--mock|--real] [--models ...] [--efforts ...]
+  python -m modelfit.cli run [--mock|--real|--via-cli {claude,codex}] [--models...] [--efforts...]
   python -m modelfit.cli advise "<task text>" [--out ...] [--chart ...]
   python -m modelfit.cli lessons
   python -m modelfit.cli eval
 
 `run` measures: it sweeps model x effort over your tasks and reports
-cost-per-solved. `advise` guesses, cheaply and deterministically, from the
-wording of a single task — no model is called to decide, and it prints the
-signals it used plus how sure it is. `eval` grades the guesser against labelled
-cases so the guessing is accountable.
+cost-per-solved. --mock is free and deterministic; --real calls the Anthropic
+SDK directly (needs ANTHROPIC_API_KEY); --via-cli shells out to an
+already-authenticated agent CLI instead, so auth lives wherever that CLI
+already logged in and no key is stored here -- it spends real quota, so it asks
+for confirmation first unless --yes is given. `advise` guesses, cheaply and
+deterministically, from the wording of a single task — no model is called to
+decide, and it prints the signals it used plus how sure it is. `eval` grades
+the guesser against labelled cases so the guessing is accountable.
 """
 
 from __future__ import annotations
@@ -20,25 +24,34 @@ import sys
 
 from . import advice_report, advisor, history, project, score
 from .evalset import evaluate
-from .providers import EFFORT_BUDGETS, MODELS
+from .providers import AGENTS, EFFORT_BUDGETS, MODELS
 from .report import write_csv, write_markdown, write_pareto_png
 from .runner import run
 from .tasks import load_tasks
 
 
+def _cps_str(cost_per_solved: float | None) -> str:
+    if cost_per_solved is None or cost_per_solved == float("inf"):
+        return "n/a"
+    return f"${cost_per_solved:.4f}/solved"
+
+
+def _cps_sort_key(stat: score.ConfigStat) -> float:
+    return stat.cost_per_solved if stat.cost_per_solved is not None else float("inf")
+
+
 def _print_summary(picks: list[score.QuadrantPick], front: list[score.ConfigStat]) -> None:
     print("\n=== Recommendation by task type ===")
     for p in picks:
-        cps = "n/a" if p.cost_per_solved == float("inf") else f"${p.cost_per_solved:.4f}/solved"
         print(
             f"  {p.quadrant:8s} -> {p.model.replace('claude-',''):14s} "
-            f"effort={p.effort:4s}  pass={p.pass_rate*100:3.0f}%  {cps}"
+            f"effort={p.effort:4s}  pass={p.pass_rate*100:3.0f}%  {_cps_str(p.cost_per_solved)}"
         )
     print("\n=== Cost-efficiency frontier (rational choices only) ===")
-    for s in sorted(front, key=lambda s: s.cost_per_solved):
+    for s in sorted(front, key=_cps_sort_key):
         print(
             f"  {s.model.replace('claude-',''):14s} effort={s.effort:4s}  "
-            f"pass={s.pass_rate*100:3.0f}%  ${s.cost_per_solved:.4f}/solved"
+            f"pass={s.pass_rate*100:3.0f}%  {_cps_str(s.cost_per_solved)}"
         )
     print()
 
@@ -51,9 +64,14 @@ def _slug(text: str, words: int = 6) -> str:
 
 
 def _cmd_run(args: argparse.Namespace, ap: argparse.ArgumentParser) -> int:
-    bad_models = [m for m in args.models if m not in MODELS]
-    if bad_models:
-        ap.error(f"unknown model(s) {bad_models}; choose from {list(MODELS)}")
+    mode = "cli" if args.via_cli else ("real" if args.real else "mock")
+
+    if mode != "cli":
+        # MODELS is Anthropic's own tier table; CLI mode may target a different
+        # provider entirely (e.g. codex + GPT ids), so it isn't a valid gate there.
+        bad_models = [m for m in args.models if m not in MODELS]
+        if bad_models:
+            ap.error(f"unknown model(s) {bad_models}; choose from {list(MODELS)}")
     bad_efforts = [e for e in args.efforts if e not in EFFORT_BUDGETS]
     if bad_efforts:
         ap.error(f"unknown effort(s) {bad_efforts}; choose from {list(EFFORT_BUDGETS)}")
@@ -65,18 +83,32 @@ def _cmd_run(args: argparse.Namespace, ap: argparse.ArgumentParser) -> int:
             "Add one (see the bundled examples in tasks/) or pass --tasks <dir>."
         )
 
-    mode = "real" if args.real else "mock"
-    trials = args.trials if args.trials is not None else (1 if mode == "real" else 8)
-    print(
-        f"Running {len(all_tasks)} tasks x {len(args.models)} models x "
-        f"{len(args.efforts)} efforts x {trials} trials in {mode.upper()} mode..."
-    )
+    trials = args.trials if args.trials is not None else (1 if mode in ("real", "cli") else 8)
+
+    if mode == "cli":
+        n_calls = len(all_tasks) * len(args.models) * len(args.efforts) * trials
+        print(
+            f"Running {len(all_tasks)} tasks x {len(args.models)} models x "
+            f"{len(args.efforts)} efforts x {trials} trials via the {args.via_cli} CLI..."
+        )
+        if not args.yes:
+            prompt = f"About to make {n_calls} real CLI calls via {args.via_cli}. Continue? [y/N] "
+            answer = input(prompt).strip().lower()
+            if answer not in ("y", "yes"):
+                print("Aborted.")
+                return 1
+    else:
+        print(
+            f"Running {len(all_tasks)} tasks x {len(args.models)} models x "
+            f"{len(args.efforts)} efforts x {trials} trials in {mode.upper()} mode..."
+        )
 
     results = run(
         all_tasks,
         args.models,
         args.efforts,
         mode=mode,
+        agent=args.via_cli,
         trials=trials,
         cache_path=None if args.no_cache else "cache/results.json",
     )
@@ -84,9 +116,10 @@ def _cmd_run(args: argparse.Namespace, ap: argparse.ArgumentParser) -> int:
     front = score.pareto(stats)
     picks = score.per_quadrant(results)
 
+    report_mode = f"cli ({args.via_cli})" if mode == "cli" else mode
     write_csv(results, f"{args.out}/results.csv")
     has_png = write_pareto_png(stats, front, f"{args.out}/pareto.png")
-    write_markdown(stats, front, picks, f"{args.out}/report.md", has_png, mode)
+    write_markdown(stats, front, picks, f"{args.out}/report.md", has_png, report_mode)
 
     _print_summary(picks, front)
     print(
@@ -204,17 +237,25 @@ def main(argv: list[str] | None = None) -> int:
     g = r.add_mutually_exclusive_group()
     g.add_argument("--mock", action="store_true", help="deterministic offline demo (default)")
     g.add_argument("--real", action="store_true", help="call the Anthropic API")
+    g.add_argument(
+        "--via-cli",
+        choices=list(AGENTS),
+        default=None,
+        help="run via an already-authenticated agent CLI (spends real quota; no API key stored "
+        "here). For codex, pass --models with GPT ids, not the Anthropic MODELS table.",
+    )
     r.add_argument("--models", nargs="+", default=list(MODELS.keys()))
     r.add_argument("--efforts", nargs="+", default=list(EFFORT_BUDGETS.keys()))
     r.add_argument(
         "--trials",
         type=int,
         default=None,
-        help="repeats per cell (reliability estimate). default: 8 mock, 1 real",
+        help="repeats per cell (reliability estimate). default: 8 mock, 1 real/cli",
     )
     r.add_argument("--out", default="reports")
     r.add_argument("--tasks", default="tasks", help="directory of *.yaml task files")
     r.add_argument("--no-cache", action="store_true")
+    r.add_argument("--yes", action="store_true", help="skip the spend confirmation for --via-cli")
 
     a = sub.add_parser("advise", help="read one task's wording and say which dial to turn")
     a.add_argument("text", help="the task, in the words you'd actually use")
