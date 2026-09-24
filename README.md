@@ -12,23 +12,11 @@
 
 ---
 
-## The problem
+Most model-selection advice is one sentence: *"use a bigger model for complex
+tasks, otherwise a cheaper one."* It's useless because it never says how you'd
+*know*, and because it treats model choice as a single dial. It isn't.
 
-Most model-selection advice is one sentence: *use a bigger model for complex
-tasks, otherwise a cheaper one.* It collapses two independent variables — how
-much the model already knows, and how long it deliberates before answering —
-into a single slider, and it never says how you'd actually tell which one a
-task needs.
-
-Turn up the wrong dial and you pay for nothing. A bigger model doesn't supply
-patience with a fiddly constraint; more thinking time doesn't supply knowledge
-the model was never given. The shape of a wrong answer tells you which one was
-actually missing, but most advice never teaches you to read it.
-
-`modelfit` reads that shape for you. `advise` recommends a starting model and
-effort level from a task description alone — deterministic, no model call,
-explains itself. `run` measures real tasks across the full model × effort grid
-and reports the cheapest config that actually passes.
+<img src="media/demo.gif" alt="modelfit advise, default then --short then --explain, then modelfit eval" width="80%" />
 
 **Who this is for:** developers calling Claude programmatically — direct
 API/SDK calls, or an agent CLI (`claude`, `codex`) that exposes its own effort
@@ -37,10 +25,6 @@ reasoning-effort flag) — a real, settable dial in code, but **not** something
 Claude Desktop or claude.ai chat expose to you. If you're chatting with Claude
 through either of those, there's no lever in that UI for this tool's
 recommendations to turn — they're not for you (yet).
-
----
-
-<img src="media/demo.gif" alt="modelfit advise, default then --short then --explain, then modelfit eval" width="80%" />
 
 ## See the two dials in practice
 

@@ -6,9 +6,9 @@ Output media/demo.gif
 
 Set Shell "zsh"
 Set FontFamily "Menlo"
-Set FontSize 15
-Set Width 1160
-Set Height 620
+Set FontSize 20
+Set Width 1560
+Set Height 820
 Set Theme "Catppuccin Mocha"
 Set Padding 20
 Set TypingSpeed 40ms
