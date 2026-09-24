@@ -21,5 +21,6 @@ All four also run in CI on every push and pull request.
 
 Every verifier must be deterministic and machine-checkable — no LLM-as-judge,
 no semantic-similarity scoring, no network calls inside a verifier. That
-discipline is what makes this tool's numbers trustworthy; see `CLAUDE.md` for
-the full list of invariants before adding tasks, verifiers, or providers.
+discipline is what makes this tool's numbers trustworthy; see the module
+docstring in `modelfit/verifiers.py` and the README's "Layout" and "Honest
+caveats" sections before adding tasks, verifiers, or providers.

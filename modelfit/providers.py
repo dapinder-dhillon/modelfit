@@ -96,20 +96,20 @@ def call_real(model: str, effort: str, prompt: str, max_tokens: int) -> Call:
 # stored by modelfit. This is the one place command templates live; fix them
 # here when a CLI's flags change.
 #
-# Verified by hand against the installed CLIs (see CLAUDE.md/README for the
-# session this was checked in) rather than assumed:
+# Verified against the actual CLIs rather than assumed -- flags and output
+# shapes drift between releases, so re-check these before trusting them blindly:
 #   claude -p --output-format json  -> single JSON object: result, is_error,
 #     total_cost_usd, usage.{input_tokens,output_tokens}. --model takes a full
 #     model name. --effort accepts low|medium|high|xhigh|max -- there is NO
 #     off/none level, so modelfit's "off" can't be pinned on this CLI.
 #   codex exec --json               -> JSONL event stream; turn.failed/error
-#     events carry a "message" on failure (confirmed live). The success-path
-#     event shape (item.completed / turn.completed with a usage block) matches
-#     Codex's documented protocol but could NOT be exercised live in this
-#     environment (this account's plan rejected every model id tried), so the
-#     usage parse below degrades to "unknown" rather than assume a field name.
+#     events carry a "message" on failure (confirmed against a live failure).
+#     The success-path event shape (item.completed / turn.completed with a
+#     usage block) matches Codex's documented protocol but has not been
+#     exercised end-to-end against a live success response, so the usage
+#     parse below degrades to "unknown" rather than assume a field name.
 #     -c model_reasoning_effort=<level> accepts none|minimal|low|medium|high|xhigh
-#     (confirmed via this CLI's own validation error) -- "none" is a genuine
+#     (per this CLI's own config validation error) -- "none" is a genuine
 #     off-equivalent, unlike claude's --effort.
 # --------------------------------------------------------------------------- #
 

@@ -14,7 +14,7 @@ is the file people actually touch to make the tool theirs: drop a new
 
 If you need a genuinely new *kind* of check (not just a new task), that's the
 one place Python is still required: add a verifier to `verifiers.REGISTRY` and
-keep it deterministic (see CLAUDE.md).
+keep it deterministic (see the module docstring in verifiers.py).
 """
 
 from __future__ import annotations
