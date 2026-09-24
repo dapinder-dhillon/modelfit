@@ -1,0 +1,19 @@
+# NEITHER: pure recall / format. Any decent model nails this.
+id: tfvars_to_json
+quadrant: NEITHER
+prompt: |
+  Convert these Terraform variable defaults into a single JSON object (the .tfvars.json equivalent). Return ONLY the JSON, no prose.
+
+  region      = "eu-west-2"
+  instance_count = 3
+  enable_logging = true
+  tags = { team = "platform", env = "prod" }
+verifier: verify_json_equals
+fixture:
+  expected:
+    region: eu-west-2
+    instance_count: 3
+    enable_logging: true
+    tags:
+      team: platform
+      env: prod

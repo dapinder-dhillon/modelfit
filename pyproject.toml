@@ -1,0 +1,56 @@
+[tool.poetry]
+name = "modelfit"
+version = "0.1.0"
+description = "Measure which model + effort combination is the cheapest one that reliably passes your own tasks."
+authors = ["Dapinder Singh <dhillon.dapinder@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/dapinder-dhillon/modelfit"
+packages = [{ include = "modelfit" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pyyaml = ">=6.0"
+anthropic = { version = ">=0.40", optional = true }
+matplotlib = { version = ">=3.9", optional = true }
+
+[tool.poetry.extras]
+real = ["anthropic"]
+chart = ["matplotlib"]
+all = ["anthropic", "matplotlib"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-cov = "^6.0"
+ruff = "^0.8"
+mypy = "^1.13"
+types-pyyaml = "^6.0"
+
+[tool.poetry.scripts]
+modelfit = "modelfit.cli:main"
+
+[build-system]
+requires = ["poetry-core>=2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+disallow_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

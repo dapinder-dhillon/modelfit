@@ -1,0 +1,19 @@
+# EFFORT: a self-contained logic bug. Needs working-out, not knowledge.
+id: backoff_delays
+quadrant: EFFORT
+prompt: >-
+  Implement a Python function `backoff_delays(attempts)` returning the list of
+  sleep durations (seconds) BETWEEN attempts for exponential backoff starting
+  at 1s and doubling. There is a sleep after every failed attempt EXCEPT the
+  last (you don't wait after giving up). So backoff_delays(1) == [],
+  backoff_delays(2) == [1], backoff_delays(4) == [1, 2, 4]. Return ONLY the
+  function.
+verifier: verify_python_callable
+fixture:
+  callable: backoff_delays
+  tests:
+    - "assert backoff_delays(1) == []"
+    - "assert backoff_delays(2) == [1]"
+    - "assert backoff_delays(3) == [1, 2]"
+    - "assert backoff_delays(4) == [1, 2, 4]"
+    - "assert backoff_delays(5) == [1, 2, 4, 8]"
