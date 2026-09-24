@@ -139,6 +139,14 @@ def write_markdown(
     lines.append("# modelfit report\n")
     lines.append(f"_Mode: **{mode}**. Cost is per **solved** task, not per token._\n")
 
+    if mode == "mock":
+        lines.append(
+            "> **Mock mode:** every number below is an illustrative synthetic result "
+            "from a deterministic formula, not a measured outcome from any real model. "
+            "It proves the tool's machinery works; it is not evidence about which model "
+            "is actually best. Run `--real` or `--via-cli` for numbers you can act on.\n"
+        )
+
     if mode.startswith("cli"):
         lines.append(
             "> **CLI mode caveat:** these runs went through an already-authenticated agent CLI, "

@@ -83,28 +83,44 @@
   truth: MODEL
   adversarial: true
   note: >-
-    Crypto. Reads as routine; getting it wrong (algorithm confusion, accepting
-    alg=none) is a security bug. No signal fires.
+    Crypto. Was a miss ("no signal fires") until a named-domain signal
+    ("signature", "jwt") was added specifically for this class of blind spot.
+    Now caught correctly and confidently — kept in the adversarial set because
+    the wording is still the kind that would fool a naive reader without that
+    signal, not because it currently fails.
 
 - task: Optimise this SQL query.
   truth: MODEL
   adversarial: true
-  note: Index and query-plan knowledge, four plain words. No signal fires.
+  note: >-
+    Was a miss ("four plain words, no signal fires"). Now caught: "sql" and
+    "query" are explicit blind-spot-domain words. Kept adversarial for the same
+    reason as the JWT case above.
 
 - task: Handle daylight-saving transitions when computing a duration between two timestamps.
   truth: MODEL
   adversarial: true
-  note: Timezone edge cases are knowledge; the wording is calm and short.
+  note: >-
+    Was a miss ("the wording is calm and short"). Now caught via
+    "daylight-saving" as a named timezone/DST domain word.
 
 - task: Make this counter thread-safe.
   truth: MODEL
   adversarial: true
-  note: Concurrency. Four words hiding memory-model knowledge.
+  note: >-
+    Was a miss. Now caught via "thread" as a named concurrency domain word —
+    the same signal that also now separates "at once" (concurrent) from "once
+    it finishes" (sequential) elsewhere in this set.
 
 - task: Store user passwords in the users table.
   truth: MODEL
   adversarial: true
-  note: Reads as CRUD; the real content is hashing, salting and cost factors.
+  note: >-
+    Still a genuine miss, on purpose. "Password" alone isn't specific enough to
+    add as a domain word without risking false positives on ordinary CRUD
+    tasks that happen to touch a users table — unlike "sql"/"jwt"/"thread",
+    which are nearly always genuine domain markers. The real content here
+    (hashing, salting, cost factors) never gets said.
 
 - task: Add a retry with exponential backoff and jitter.
   truth: EFFORT
@@ -124,8 +140,11 @@
   truth: NEITHER
   adversarial: true
   note: >-
-    FALSE TRIGGER — "review" is filler, not a judgement call. The advisor
-    over-reads it as MODEL.
+    FALSE TRIGGER — "review" is filler next to a mechanical operation (sort),
+    not a judgement call. Was a miss (over-read as MODEL); now caught by
+    discounting "review" specifically when a sort/order/format-type word is
+    also present. Kept adversarial: the fix is narrow and context-specific by
+    design, not "review never counts."
 
 - task: Rewrite this hot loop so it never allocates.
   truth: EFFORT
@@ -140,3 +159,36 @@
   note: >-
     Caught: "audit" is a genuine judgement verb here, not filler. Compare with
     the "review the array" case, where the same class of word means nothing.
+
+- task: Two workers process the same payment webhook at once and charge the customer twice.
+  truth: MODEL
+  adversarial: true
+  note: >-
+    "At once" means simultaneous, not sequential -- it used to fire the
+    ordering signal (via "once") and land this as EFFORT, which pointed at
+    "think longer" for what is actually a race condition needing real
+    concurrency knowledge. Now caught: "at once" is excluded from the ordering
+    signal and instead fires the concurrency domain signal directly.
+
+- task: Process the payment webhook, then charge the customer once the job finishes.
+  truth: EFFORT
+  adversarial: false
+  note: >-
+    The sequential counterpart to the "at once" case above -- same word
+    ("once"), opposite meaning, and now correctly distinguished from it. Not
+    adversarial: "then" and "once X happens" are exactly the ordering wording
+    this signal is supposed to catch.
+
+- task: Review this code and sort out the deployment issue.
+  truth: MODEL
+  adversarial: true
+  note: >-
+    A NEW miss, introduced by the fix above that discounts "review" next to a
+    mechanical verb (see "review the array"). "Sort out" is idiomatic for
+    "resolve", not literal sorting, but the regex can't tell the difference
+    from "sort" in "sort the list" -- so "review" gets wrongly discounted here
+    too, and no signal fires at all. Kept in on purpose: fixing one false
+    positive on a word ("review") that only ever means one of two things
+    (filler vs. judgement) introduces a new false negative on a *different*
+    word ("sort") that also means one of two things (literal vs. idiomatic).
+    That trade is honest to show, not something to hide by deleting the case.

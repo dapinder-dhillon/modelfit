@@ -1,76 +1,191 @@
+<div align="center">
+
 # modelfit
+
+**Stop guessing which model to use. Measure it.**
 
 [![CI](https://github.com/dapinder-dhillon/modelfit/actions/workflows/ci.yml/badge.svg)](https://github.com/dapinder-dhillon/modelfit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)
 
-**Stop guessing which model to use. Measure it.**
+</div>
 
-Most model-selection advice is one sentence: *"use a bigger model for complex
-tasks, otherwise a cheaper one."* It's useless because it never says how you'd
-*know*, and because it treats model choice as a single dial. It isn't.
+---
 
-There are **two independent dials plus a constraint**:
+## The problem
 
-| Dial | What you're buying | Fixes the failure... |
-|---|---|---|
-| **Model** (Haiku→Sonnet→Opus→Fable) | raw talent / knowledge / judgement | *"it didn't know"* |
-| **Effort** (off→low→high thinking budget) | how long it deliberates before answering | *"it didn't think it through"* |
-| **Speed / cost** | the constraint you optimise inside | — |
+Most model-selection advice is one sentence: *use a bigger model for complex
+tasks, otherwise a cheaper one.* It collapses two independent variables — how
+much the model already knows, and how long it deliberates before answering —
+into a single slider, and it never says how you'd actually tell which one a
+task needs.
 
-The trick that replaces the generic advice: **the shape of the failure tells you
-which dial to turn.** Wrong because it missed a constraint or contradicted itself
-→ turn up *effort* (cheap). Wrong because it used the wrong API or showed shallow
-judgement → turn up the *model*.
+Turn up the wrong dial and you pay for nothing. A bigger model doesn't supply
+patience with a fiddly constraint; more thinking time doesn't supply knowledge
+the model was never given. The shape of a wrong answer tells you which one was
+actually missing, but most advice never teaches you to read it.
 
-`modelfit` proves this with data. It runs a set of tasks across the whole
-**model × effort** grid, scores every run with a **deterministic** verifier
-(tests pass / exact match / required findings present — no model-graded
-fuzziness), and reports **cost-per-*solved*-task**, a Pareto frontier, and a
-per-task-type recommendation.
+`modelfit` reads that shape for you. `advise` recommends a starting model and
+effort level from a task description alone — deterministic, no model call,
+explains itself. `run` measures real tasks across the full model × effort grid
+and reports the cheapest config that actually passes.
 
-## Install
+**Who this is for:** developers calling Claude programmatically — direct
+API/SDK calls, or an agent CLI (`claude`, `codex`) that exposes its own effort
+flag. "Effort" here is Anthropic's `thinking` parameter (or a CLI's own
+reasoning-effort flag) — a real, settable dial in code, but **not** something
+Claude Desktop or claude.ai chat expose to you. If you're chatting with Claude
+through either of those, there's no lever in that UI for this tool's
+recommendations to turn — they're not for you (yet).
 
-Requires Python 3.12+ and [Poetry](https://python-poetry.org/).
+---
 
-```bash
-poetry install --extras all      # anthropic (for --real) + matplotlib (for the chart)
+<img src="media/demo.gif" alt="modelfit advise, default then --short then --explain, then modelfit eval" width="80%" />
+
+## See the two dials in practice
+
+A payment bug involving two workers calls for domain expertise:
+
+```
+$ modelfit advise "Fix an intermittent bug where two workers process the same payment webhook at once and charge the customer twice. Keep retries safe."
+
+START       sonnet-5 / high effort
+IF NEEDED   switch to opus-4-8, same high effort
+SIGNAL      high (clear read of your wording)
+
+WHY         your wording has "at once" → needs real domain expertise, not just more thinking
 ```
 
-## Run it (no API key needed)
+Storing passwords reads like routine CRUD — the wording gives no hint that
+hashing and salting are the actual problem, so the tool says so instead of
+guessing:
 
-```bash
-poetry run modelfit run --mock
+```
+$ modelfit advise "Store user passwords in the users table."
+
+START       haiku-4-5 / no extra thinking
+SIGNAL      low (just a guess — see below)
+
+BLIND SPOT  Nothing in the wording signals difficulty. That is this tool's blind
+            spot: crypto, SQL tuning, timezones / DST, concurrency can all look
+            simple from the wording alone. If this task is actually one of
+            those, start with sonnet-5 at high effort yourself instead of the
+            suggestion above.
 ```
 
-This produces `reports/report.md`, `reports/results.csv`, and
-`reports/pareto.png`. The mock is deterministic and encodes the thesis, so the
-sample report visibly shows effort winning one task type and model winning
-another.
+A codebase-wide refactor is broad enough that the tool won't commit to a single
+answer — it shows the runner-up instead of guessing which one is right:
 
-## Run it for real
+```
+$ modelfit advise "Refactor the entire tagging module across the codebase and update all call sites."
 
-```bash
-poetry install --extras real
-export ANTHROPIC_API_KEY=sk-...
-poetry run modelfit run --real --models claude-haiku-4-5 claude-sonnet-5 claude-opus-4-8
+START       sonnet-5 / low effort
+IF NEEDED   raise effort to high before switching model
+SIGNAL      medium (could be read another way)
+
+WHY         your wording has "refactor" and "entire" → spans a lot of ground, self-directed
+
+SECOND OPINION  could be BOTH instead. If it drops conditions and makes wrong
+                choices, treat it as BOTH: use a bigger model, high effort, and
+                review the result yourself.
 ```
 
-Effort maps to Anthropic's `thinking` budget (`off`/`low`/`high`). The same idea
-is `reasoning_effort` on OpenAI — swap the adapter in `providers.py`.
+`advise` runs locally and makes no model call. It reads the wording of a task,
+so its suggestion is a starting point, not a measured chance of success.
+`SIGNAL` describes how clearly the wording matched its rules.
 
-## Run it through a CLI you're already logged into
+To find out what works for your project, replace the bundled examples with
+representative tasks and verifiers. `run --mock` demonstrates the report with
+synthetic results; `run --real` and `run --via-cli` make model calls to measure
+your tasks.
 
-A third mode shells out to an already-authenticated agent CLI (`claude -p` or
-`codex exec`) instead of the SDK, so auth lives wherever that CLI already
-logged in — **no API key is read or stored by modelfit.**
+## Contents
+
+1. [Requirements](#requirements)
+2. [Installation](#installation)
+3. [Usage](#usage)
+4. [Updating](#updating)
+5. [Uninstall](#uninstall)
+6. [How it works](#how-it-works)
+7. [Developing](#developing)
+8. [License](#license)
+
+## Requirements
+
+- Python 3.12+
+- [pipx](https://pipx.pypa.io/) (recommended) or `pip`
+- For `--real`: an `ANTHROPIC_API_KEY`
+- For `--via-cli`: the `claude` and/or `codex` CLI, already installed and logged in
+- For charts (`run`'s Pareto PNG, `advise`'s projection PNG): the `chart` extra (`matplotlib`)
+
+## Installation
 
 ```bash
-poetry run modelfit run --via-cli claude --models claude-haiku-4-5 claude-sonnet-5
-poetry run modelfit run --via-cli codex --models gpt-5.1 --efforts off low
+pipx install git+https://github.com/dapinder-dhillon/modelfit.git
 ```
 
-This spends real quota, so it asks first:
+That puts `modelfit` on your `PATH` — enough for `run --mock`, `run --via-cli`,
+and `advise`. For the `--real` API mode or the Pareto/projection charts, install
+with the extras instead:
+
+```bash
+pip install "modelfit[all] @ git+https://github.com/dapinder-dhillon/modelfit.git"
+```
+
+Extras are scoped if you only need one: `modelfit[real]` (Anthropic SDK only)
+or `modelfit[chart]` (matplotlib only).
+
+Contributing, or want `--via-cli`'s source alongside it? Clone the repo and use
+[Poetry](https://python-poetry.org/) instead:
+
+```bash
+git clone https://github.com/dapinder-dhillon/modelfit.git
+cd modelfit
+poetry install --with dev --extras all
+```
+
+## Usage
+
+### `advise` — before you spend anything
+
+```bash
+modelfit advise "<task text>"                    # default: leads with the action
+modelfit advise "<task text>" --short             # one line, for the 50th call today
+modelfit advise "<task text>" --explain           # signal-by-signal breakdown, raw scores
+modelfit advise "<task text>" --outcome pass --used-effort low   # record what happened
+modelfit advise "<task text>" --out FILE --chart FILE            # write paths (default: reports/advice_*)
+```
+
+`--short` and `--explain` are mutually exclusive. Three things are **never**
+hidden behind a flag, at any verbosity: the WHY line (or the blind-spot warning
+in its place), the hedge shown when confidence isn't high, and the blind-spot
+warning shown when nothing fired. Those are the honesty guarantees this tool
+exists to make.
+
+It also writes `reports/advice_<slug>.md` and a projection chart, and appends
+the call to `~/.modelfit/history.json` (local file, nothing leaves your
+machine) — that bookkeeping line prints to stderr, so
+`modelfit advise "..." > out.txt` captures only the recommendation.
+
+```bash
+modelfit lessons     # your shape distribution + calibration from YOUR recorded outcomes
+modelfit eval        # the advisor grades itself: overall / clear / adversarial accuracy
+```
+
+### `run` — measure it for real
+
+```bash
+modelfit run --mock                                          # free, deterministic, no key
+modelfit run --real --models claude-haiku-4-5 claude-sonnet-5 # needs ANTHROPIC_API_KEY
+modelfit run --via-cli claude --models claude-haiku-4-5       # shells out to a logged-in CLI
+modelfit run --via-cli codex --models gpt-5.1 --efforts off low
+```
+
+Common flags: `--efforts off low high`, `--trials N` (repeats per cell; default
+8 mock / 1 real·cli), `--tasks DIR` (default `tasks/`), `--out DIR` (default
+`reports/`), `--no-cache`.
+
+`--via-cli` spends real quota, so it asks first:
 
 ```
 About to make 12 real CLI calls via claude. Continue? [y/N]
@@ -80,17 +195,18 @@ Pass `--yes` to skip the prompt in a script. For `codex`, pass `--models` with
 GPT ids — the `--models` default is Anthropic's own table, which only makes
 sense for `claude`.
 
-**This mode degrades honestly instead of faking precision:**
+**`--via-cli` degrades honestly instead of faking precision:**
 
 - **Effort isn't always controllable.** `claude -p --effort` has no off/none
   level, so requesting `off` there can't be pinned — the report shows that run's
   effort as `n/a`, never a number implying control that wasn't there. `codex`'s
   `model_reasoning_effort` does have a `none` level, so `off` **is** controlled
   there.
-- **Cost isn't always knowable.** When the CLI reports a cost or token usage, it's
-  used (falling back to the same placeholder `PRICING` table the other modes use
-  if only token counts came back). When it reports neither, `cost_usd` is `None`
-  and the report shows `$/solved` as `n/a` rather than inventing a number.
+- **Cost isn't always knowable.** When the CLI reports a cost or token usage,
+  it's used (falling back to the same placeholder `PRICING` table the other
+  modes use if only token counts came back). When it reports neither,
+  `cost_usd` is `None` and the report shows `$/solved` as `n/a` rather than
+  inventing a number.
 - **It's directional, not precise.** The CLI may inject its own system prompt,
   tools, or context you don't control, so "same task in" is less tightly
   controlled than the SDK path — the report says so once, up top.
@@ -99,151 +215,54 @@ All tool use is disabled for the call itself (`--tools ""` for claude,
 `--sandbox read-only --ask-for-approval never` for codex) — a benchmark run is
 one completion, not an agentic turn that should be touching your filesystem.
 
-## Before you spend anything: `advise`
+Effort maps to Anthropic's `thinking` budget (`off`/`low`/`high`). The same
+idea is `reasoning_effort` on OpenAI — swap the adapter in `providers.py`.
 
-Measuring is the answer, but it isn't the *first* question. The first question is
-"I have this one task in front of me — where do I start?" That's what `advise`
-is for: it reads the **wording** of a task and says which dial to reach for.
+## Updating
 
-```bash
-poetry run modelfit advise "Fix this retry helper so it never sleeps after the final attempt."
-```
-
-```
-=== EFFORT — self-contained logic — conditions to hold on to while you work ===
-  lever      : EFFORT
-  confidence : high (Signals agree and there are enough of them; ...)
-
---- why (signals that fired) ---
-  - exception / negation wording ("never") → effort +2 — a condition to carry through ...
-  - ordered / multi-step wording ("after") → effort +2 — state has to survive ...
-
---- start here ---
-  sonnet-5 at effort low
-  if it fails, escalate to: sonnet @ high effort
-```
-
-It also writes `reports/advice_<slug>.md` and a projection chart, and appends the
-call to `~/.modelfit/history.json` (local file, nothing leaves your machine).
-Record what actually happened and it feeds back:
+There's no version pin to bump — it's installed straight from git, so a fresh
+install picks up whatever is on `main`. The reliable way to force that refresh:
 
 ```bash
-poetry run modelfit advise "<task>" --outcome pass --used-effort low
-poetry run modelfit lessons     # your shape distribution + calibration from YOUR outcomes
+pipx install --force git+https://github.com/dapinder-dhillon/modelfit.git
 ```
 
-### What `advise` is, honestly
+(`pip install --upgrade --force-reinstall "modelfit[all] @ git+https://..."`
+if you installed with `pip` instead.) Plain `pipx upgrade modelfit` may also
+pick up new commits, since there's no version number to compare against — but
+`--force` is the one that's guaranteed to.
 
-- **It reads words, not meaning.** "Optimise this SQL query" is six plain words
-  hiding real knowledge. It will call that NEITHER, and be wrong.
-- **No LLM is involved in the decision.** Deterministic regexes only — same text
-  in, same verdict out. An advisor that asked a model which model to use would be
-  circular, and would break the same rule the verifiers live by.
-- **It states its confidence and hedges.** Conflicting signals lower confidence
-  and print the runner-up quadrant plus how to tell the two apart from the
-  *failure* shape.
-- **Silence is not evidence of ease.** When nothing fires it does *not* say
-  "easy" — it says so, keeps confidence low, and names the blind spots (crypto,
-  SQL tuning, timezones/DST, concurrency).
-- **`lessons` counts only outcomes you recorded.** Never inferred.
-
-It's a second opinion to argue with, not an oracle. `modelfit run` is the evidence.
-
-### It grades itself
+## Uninstall
 
 ```bash
-poetry run modelfit eval
+pipx uninstall modelfit
 ```
 
-Labelled cases live in `eval/advisor_cases.yaml` (data, same as tasks), split
-into *clear* wording and *adversarial* wording, and both numbers are printed:
+(or `pip uninstall modelfit`.) This doesn't touch anything it wrote alongside
+itself — `~/.modelfit/history.json`, or any `reports/`/`cache/` directories in
+projects where you ran it — those are plain files, remove them yourself if you
+want them gone too.
 
-```
-  overall     : 0.60  (12/20)
-  clear       : 1.00  (10/10)  — does the mechanism work?
-  adversarial : 0.20  (2/10)   — how far wording is from meaning
-```
+## How it works
 
-The adversarial number is *meant* to be poor, and the misses are listed in full.
-That gap is the caveat made measurable; blending it into one headline accuracy
-would be the dishonest version of this tool.
+`modelfit advise` scans your task description for wording that suggests
+constraints, ordered steps, domain expertise, breadth, or several
+requirements. Fixed rules turn those signals into a suggested model and effort
+level. The output shows the wording it used, so you can challenge its
+reasoning.
 
-## Development
+The advisor runs locally and makes no model call. It cannot understand
+unstated difficulty: a short request may hide a hard SQL, security, or
+timezone problem. Treat its answer as a starting point.
 
-```bash
-poetry install --with dev --extras all
-poetry run pytest                  # test suite (verifiers get the heaviest coverage)
-poetry run ruff check .            # lint
-poetry run ruff format --check .   # format check
-poetry run mypy modelfit           # types
-```
+`modelfit run` answers a different question by testing models on tasks you
+supply and checking their answers with verifiers. Mock results are synthetic
+examples; real and CLI runs make model calls.
 
-CI (`.github/workflows/ci.yml`) runs all four on every push and PR.
+## Developing
 
-## Make it yours (this is the actual point)
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-The bundled tasks in `tasks/` are toys chosen to span four quadrants. **Delete
-them** and drop in ~20 real tasks from your backlog instead — no Python
-required, each is just a YAML file:
+## License
 
-```yaml
-# tasks/my_real_task.yaml
-id: my_real_task
-quadrant: EFFORT              # NEITHER | EFFORT | MODEL | BOTH
-prompt: |
-  Whatever you'd actually ask a model to do.
-verifier: verify_python_callable
-fixture:
-  callable: some_function
-  tests:
-    - "assert some_function(1) == 2"
-```
-
-Pick a verifier and give it a deterministic `fixture`:
-
-- code tasks → a few `assert`s run in a subprocess (`verify_python_callable`)
-- structured output → exact/structural compare (`verify_json_equals`)
-- judgement tasks → constrain the model to a fixed vocabulary and check the
-  required items appear (`verify_finding_set`)
-
-`modelfit run` loads every `*.yaml` in `tasks/` automatically (point elsewhere
-with `--tasks <dir>`). Once the tasks are yours, the recommendation is yours —
-and defensible to anyone who says "just use the big one." If you need a
-genuinely new *kind* of check, that's the one place Python is still required:
-add a verifier to `modelfit/verifiers.py`.
-
-## Layout
-
-```
-tasks/*.yaml             # your tasks: id, quadrant, prompt, verifier, fixture  <- edit this
-eval/advisor_cases.yaml  # labelled cases the advisor grades itself against
-modelfit/
-  tasks.py          # Task dataclass + load_tasks(): reads and validates tasks/*.yaml
-  verifiers.py      # deterministic pass/fail checks
-  providers.py      # model tiers, effort→budget, pricing, real call, mock, CLI-mode adapter
-  runner.py         # sweeps the grid, caches results additively
-  score.py          # cost-per-solved, Pareto frontier, per-quadrant winner
-  report.py         # markdown + CSV + Pareto PNG
-  advisor.py        # estimate(): regex signals -> quadrant + plan + confidence
-  advice_report.py  # the written verdict for one task
-  project.py        # projected pass-rate vs cost chart for one task
-  history.py        # ~/.modelfit/history.json + lessons()
-  evalset.py        # loads eval/advisor_cases.yaml, scores the advisor
-  cli.py            # `run` | `advise` | `lessons` | `eval`
-```
-
-## Honest caveats
-
-- **Pricing in `providers.py` is placeholder — confirm current numbers yourself.**
-- `verify_python_callable` executes generated code in a subprocess with a
-  timeout. Fine for a local experiment on models you chose; isolate properly
-  (container / nsjail) for anything untrusted or CI.
-- The mock's pass rates are illustrative. Only `--real`/`--via-cli` numbers are evidence.
-- `--via-cli` is directional, not precise: the CLI may inject its own system
-  prompt/tools/context, effort isn't controllable on every agent for every
-  level, and cost is `n/a` whenever the CLI didn't report usage. See "Run it
-  through a CLI you're already logged into" above.
-- `advise` is a heuristic over wording, not a measurement. It is deterministic and
-  it explains itself, but it cannot see difficulty the words don't carry — see its
-  own adversarial score in `modelfit eval`. The projection chart it draws is
-  modelled from the shape, not measured.
+MIT © [Dapinder Singh](https://github.com/dapinder-dhillon)

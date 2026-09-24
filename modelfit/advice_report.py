@@ -20,7 +20,9 @@ def _short(model: str) -> str:
 
 
 def render(est: Estimate, chart_rel: str | None = None) -> str:
-    """Render the advice as markdown."""
+    """Render the advice as markdown. Leads with the action (what to run, and
+    what to do if it fails) before the classification that justifies it --
+    someone skimming should get the verdict without reading the reasoning."""
     lines: list[str] = []
     lines.append("# modelfit advice\n")
     lines.append("_Read from the wording only. No model was asked. Same text → same verdict._\n")
@@ -30,28 +32,32 @@ def render(est: Estimate, chart_rel: str | None = None) -> str:
         lines.append(f"> {line}")
     lines.append("")
 
-    lines.append(f"## Shape: **{est.quadrant}** — {est.shape}\n")
-    lines.append(
-        f"- **Lever to turn:** {est.lever}\n"
-        f"- **Confidence:** {est.confidence} — {confidence_note(est.confidence)}\n"
-        f"- **Scores:** effort {est.effort_score}, model {est.model_score}\n"
-    )
-
-    lines.append("## Why — the signals that fired\n")
-    for reason in est.reasons:
-        lines.append(f"- {reason}")
-    lines.append("")
-
     lines.append("## Recommendation\n")
     lines.append(f"**Start at `{_short(est.start_model)}` with effort `{est.start_effort}`.**\n")
     if est.escalate_to:
-        lines.append(f"If it fails, escalate to: **{est.escalate_to}**.\n")
+        lines.append(f"If it fails: **{est.escalate_to}**.\n")
     else:
         lines.append(
             "There is nothing to escalate to by default — if this fails, the wording "
             "misled the advisor, so re-read the failure before spending more.\n"
         )
+    lines.append(
+        f"**Signal:** {est.confidence} — how clearly the wording matched, "
+        "not how likely this is to succeed.\n"
+    )
+
+    lines.append("## Why\n")
+    lines.append(f"Shape: **{est.quadrant}** — {est.shape}.\n")
+    lines.append(f"{est.why_short}\n")
+    lines.append("<details><summary>Full signal breakdown</summary>\n")
+    for reason in est.reasons:
+        lines.append(f"- {reason}")
+    lines.append(
+        f"\nScores: effort {est.effort_score} (baseline 1 + signals), model {est.model_score}.\n"
+    )
+    lines.append(f"{confidence_note(est.confidence)}\n")
     lines.append(f"{teach_line(est)}\n")
+    lines.append("</details>\n")
 
     if est.confidence != "high" and est.runner_up:
         alt_model, alt_effort, alt_escalate = plan_for(est.runner_up)
@@ -59,7 +65,7 @@ def render(est: Estimate, chart_rel: str | None = None) -> str:
         lines.append(
             f"This could also be shaped like **{est.runner_up}** "
             f"(start `{_short(alt_model)}` at effort `{alt_effort}`"
-            + (f", escalating to {alt_escalate}" if alt_escalate else "")
+            + (f"; if it fails: {alt_escalate}" if alt_escalate else "")
             + ").\n"
         )
         lines.append(f"**How to tell:** {distinguish_hint(est.runner_up)}\n")
@@ -72,7 +78,8 @@ def render(est: Estimate, chart_rel: str | None = None) -> str:
             f"{', '.join(BLIND_SPOTS)}. A one-line ask can be a MODEL task in disguise.\n"
         )
         lines.append(
-            "If the subject matter is any of those, override this verdict and start higher.\n"
+            "If the subject matter is any of those, use the second option above instead "
+            "of the recommendation at the top.\n"
         )
 
     if chart_rel:

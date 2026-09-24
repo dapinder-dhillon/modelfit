@@ -23,7 +23,8 @@ _CASES = Path(__file__).resolve().parent.parent / "eval" / "advisor_cases.yaml"
 
 BOILERPLATE = "Write a Dockerfile for a Python 3.12 Flask app that exposes port 8000."
 EFFORT_TASK = "Fix this retry helper so it never sleeps after the final attempt."
-MODEL_TASK = "Review this IAM policy and list the findings that make it insecure."
+MODEL_TASK = "Review this IAM policy and explain the security risks."
+WEAK_JUDGEMENT_TASK = "Review the list of service names and return it sorted alphabetically."
 BOTH_TASK = (
     "Refactor the payment module across all three services so no service calls the legacy "
     "gateway directly, then migrate the remaining callers and update the integration tests."
@@ -76,6 +77,55 @@ class TestExplainsItself:
         assert advisor.distinguish_hint(est.runner_up)
         assert advisor.distinguish_hint(None) == ""
 
+    def test_review_next_to_a_mechanical_operation_is_not_judgement(self) -> None:
+        """ "Review the list and sort it" -- "review" next to a mechanical verb
+        (sort/order/alphabetize/...) is filler, not a real judgement call, so it
+        shouldn't fire judgement at all. This must classify the same whether or
+        not "review" is even in the sentence -- the word shouldn't change the
+        answer for a task that's mechanical either way."""
+        with_review = advisor.estimate(WEAK_JUDGEMENT_TASK)
+        without_review = advisor.estimate("Return the list of service names sorted alphabetically.")
+        assert with_review.quadrant == without_review.quadrant == "NEITHER"
+
+    def test_a_lone_generic_judgement_word_does_not_claim_high_confidence(self) -> None:
+        """A single generic judgement word with nothing else backing it up (no
+        mechanical verb to discount it, no other signal) is still a coin flip,
+        not a clear read -- confidence has to say so rather than commit."""
+        est = advisor.estimate("Review this configuration.")
+        assert est.quadrant == "MODEL"
+        assert est.confidence == "medium"
+        assert est.runner_up == "NEITHER"
+
+    def test_multiple_judgement_words_still_earn_high_confidence(self) -> None:
+        est = advisor.estimate(MODEL_TASK)
+        assert est.quadrant == "MODEL"
+        assert est.confidence == "high"
+        assert est.runner_up is None
+
+    def test_named_blind_spot_domain_gets_a_cautious_path_not_a_cheap_one(self) -> None:
+        """Naming a documented blind-spot domain (SQL, crypto, timezone,
+        concurrency) directly should route to a cautious MODEL start, not the
+        cheap NEITHER default with a warning telling the user to override it."""
+        for text in (
+            "Make this SQL query faster.",
+            "Implement RS256 JWT signature verification.",
+            "Handle daylight-saving transitions when computing a duration.",
+            "Make this counter thread-safe.",
+        ):
+            est = advisor.estimate(text)
+            assert est.quadrant == "MODEL", f"{text!r} did not get the cautious path"
+            assert est.confidence == "high", f"{text!r} should not be hedged"
+
+    def test_at_once_is_concurrency_not_ordering(self) -> None:
+        concurrent = advisor.estimate(
+            "Two workers process the same payment webhook at once and charge the customer twice."
+        )
+        sequential = advisor.estimate(
+            "Process the payment webhook, then charge the customer once the job finishes."
+        )
+        assert concurrent.quadrant == "MODEL"
+        assert sequential.quadrant == "EFFORT"
+
 
 class TestDeterminism:
     def test_same_text_gives_the_same_verdict(self) -> None:
@@ -116,7 +166,7 @@ class TestArtifacts:
     def test_report_shows_signals_confidence_and_caveat(self) -> None:
         text = advice_report.render(advisor.estimate(BOILERPLATE), chart_rel="c.png")
         assert "no signal fired" in text
-        assert "Confidence:** low" in text
+        assert "Signal:** low" in text
         assert "Blind spot" in text
         assert "second option" in text
         assert "![Projected pass rate vs cost](c.png)" in text

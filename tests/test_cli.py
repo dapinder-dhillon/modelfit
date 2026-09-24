@@ -4,9 +4,43 @@ from pathlib import Path
 
 import pytest
 
-from modelfit.cli import main
+from modelfit import advice_report, advisor
+from modelfit.cli import _print_compact, _print_explain, _print_short, main
 
 _TASKS_DIR = Path(__file__).resolve().parent.parent / "tasks"
+
+# Blind-spot cases from more than one angle: the classic zero-signal task, and
+# one where a strong signal ALSO happens to fire alongside it, to make sure the
+# warning isn't only reachable through the single most obvious path.
+_BLIND_SPOT_TEXTS = [
+    "Write a hello world script.",
+    "Add a .gitignore file for a Node project.",
+]
+
+
+def test_every_view_shows_the_blind_spot_when_the_estimate_has_it(capsys):
+    """A flag on the Estimate object proves nothing about what a person actually
+    sees -- each rendering path has to be checked directly, not assumed to
+    inherit the flag correctly. (This is exactly the kind of gap that let an
+    earlier --short build ship without the warning at all.)"""
+    for text in _BLIND_SPOT_TEXTS:
+        est = advisor.estimate(text)
+        assert est.hidden_knowledge_warning, f"{text!r} was expected to hit the blind spot"
+
+        _print_compact(est)
+        compact_out = capsys.readouterr().out
+        assert "BLIND SPOT" in compact_out, f"compact view dropped the warning for {text!r}"
+
+        _print_short(est)
+        short_out = capsys.readouterr().out
+        assert "blind spot" in short_out, f"--short dropped the warning for {text!r}"
+
+        _print_explain(est)
+        explain_out = capsys.readouterr().out
+        assert "blind spot" in explain_out, f"--explain dropped the warning for {text!r}"
+
+        report_text = advice_report.render(est)
+        assert "Blind spot" in report_text, f"the .md report dropped the warning for {text!r}"
 
 
 def test_unknown_model_exits_with_clear_error(capsys):
@@ -30,15 +64,23 @@ def test_missing_tasks_dir_exits_with_clear_error(tmp_path, capsys):
     assert "no *.yaml task files found" in capsys.readouterr().err
 
 
-def test_advise_prints_verdict_and_writes_artifacts(tmp_path, monkeypatch, capsys):
+def test_advise_default_leads_with_the_action(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("MODELFIT_HOME", str(tmp_path / "home"))
     monkeypatch.chdir(tmp_path)
     rc = main(["advise", "Fix this retry helper so it never sleeps after the final attempt."])
-    out = capsys.readouterr().out
+    out, err = capsys.readouterr()
     assert rc == 0
-    assert "EFFORT" in out
-    assert "why (signals that fired)" in out
-    assert "start here" in out
+    assert "START" in out
+    assert "sonnet-5 / low effort" in out
+    assert "IF NEEDED" in out
+    assert "SIGNAL" in out
+    assert "WHY" in out
+    # the classifier's raw scores/full prose are debug detail, not the default
+    assert "scores" not in out
+    assert "why (signals that fired)" not in out
+    # bookkeeping is stderr, not stdout, so piping `advise "..." > file` stays clean
+    assert "Wrote" in err
+    assert "Wrote" not in out
     assert list((tmp_path / "reports").glob("advice_*.md"))
     assert (tmp_path / "home" / "history.json").exists()
 
@@ -47,11 +89,43 @@ def test_advise_on_plain_wording_warns_instead_of_claiming_easy(tmp_path, monkey
     monkeypatch.setenv("MODELFIT_HOME", str(tmp_path / "home"))
     monkeypatch.chdir(tmp_path)
     rc = main(["advise", "Add a .gitignore file for a Node project.", "--outcome", "pass"])
+    out, err = capsys.readouterr()
+    assert rc == 0
+    assert "SIGNAL" in out and "low" in out
+    assert "BLIND SPOT" in out
+    assert "Recorded outcome: pass" in err
+
+
+def test_advise_short_is_one_line(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MODELFIT_HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_path)
+    task = "Fix this retry helper so it never sleeps after the final attempt."
+    rc = main(["advise", task, "--short"])
     out = capsys.readouterr().out
     assert rc == 0
-    assert "confidence : low" in out
-    assert "blind spot" in out
-    assert "Recorded outcome: pass" in out
+    lines = [line for line in out.splitlines() if line.strip()]
+    assert len(lines) == 1
+    assert "sonnet-5/low" in lines[0]
+    assert "[high]" in lines[0]
+
+
+def test_advise_explain_has_the_full_breakdown(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MODELFIT_HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_path)
+    task = "Fix this retry helper so it never sleeps after the final attempt."
+    rc = main(["advise", task, "--explain"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "why (signals that fired)" in out
+    assert "start here" in out
+    assert "scores" in out
+    assert "baseline 1 + signals" in out  # explains the score so it's checkable, not just asserted
+
+
+def test_advise_short_and_explain_are_mutually_exclusive():
+    with pytest.raises(SystemExit) as exc:
+        main(["advise", "x", "--short", "--explain"])
+    assert exc.value.code == 2
 
 
 def test_lessons_reads_only_recorded_outcomes(tmp_path, monkeypatch, capsys):

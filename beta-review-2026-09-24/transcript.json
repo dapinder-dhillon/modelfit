@@ -1,0 +1,484 @@
+[
+  {
+    "persona": "Setup",
+    "command": "which modelfit",
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "chunk_id": "4340c6",
+        "wall_time_seconds": 0.000014042,
+        "exit_code": 0,
+        "original_token_count": 11,
+        "output": "/Users/dapindersingh/.local/bin/modelfit\n"
+      }
+    }
+  },
+  {
+    "id": "D1",
+    "persona": "Developer",
+    "command": "modelfit advise 'Write a Python function that takes a list of integers and returns the even ones.'",
+    "result": {
+      "chunk_id": "4856f5",
+      "wall_time_seconds": 0,
+      "exit_code": 1,
+      "original_token_count": 450,
+      "output": "\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\nTraceback (most recent call last):\n  File \"/Users/dapindersingh/.local/bin/modelfit\", line 6, in <module>\n    sys.exit(main())\n             ~~~~^^\n  File \"/Users/dapindersingh/SINGH-Workspace/modelfit/modelfit/cli.py\", line 384, in main\n    return handler(args, ap)\n  File \"/Users/dapindersingh/SINGH-Workspace/modelfit/modelfit/cli.py\", line 258, in _cmd_advise\n    log = history.record(est, outcome=args.outcome, used_effort=args.used_effort)\n  File \"/Users/dapindersingh/SINGH-Workspace/modelfit/modelfit/history.py\", line 81, in record\n    target.write_text(json.dumps(entries, indent=2))\n    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.5/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py\", line 809, in write_text\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\n         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.5/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py\", line 771, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 1] Operation not permitted: '/Users/dapindersingh/.modelfit/history.json'\n"
+    }
+  },
+  {
+    "id": "D1-retry",
+    "persona": "Developer",
+    "command": "modelfit advise 'Write a Python function that takes a list of integers and returns the even ones.'",
+    "result": {
+      "chunk_id": "00ffd7",
+      "wall_time_seconds": 0.000007125,
+      "exit_code": 0,
+      "original_token_count": 151,
+      "output": "Wrote reports/advice_write_a_python_function_that_takes.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "D-help",
+    "persona": "Developer",
+    "command": "modelfit advise --help",
+    "result": {
+      "chunk_id": "29b51c",
+      "wall_time_seconds": 0.000007625,
+      "exit_code": 0,
+      "original_token_count": 249,
+      "output": "usage: modelfit advise [-h] [--short | --explain] [--out OUT] [--chart CHART]\n                       [--outcome {pass,fail}] [--used-effort {off,low,high}]\n                       text\n\npositional arguments:\n  text                  the task, in the words you'd actually use\n\noptions:\n  -h, --help            show this help message and exit\n  --short, --compact    one line: model/effort, escalation, confidence -- for\n                        repeat use\n  --explain             full signal-by-signal breakdown and raw scores -- for\n                        debugging the classifier\n  --out OUT             markdown path (default: reports/advice_*.md)\n  --chart CHART         chart path (default: reports/advice_*.png)\n  --outcome {pass,fail}\n                        record what actually happened at the advised start\n                        (feeds `lessons`)\n  --used-effort {off,low,high}\n                        the effort you actually used, recorded alongside the\n                        outcome\n"
+    }
+  },
+  {
+    "id": "D2",
+    "persona": "Developer",
+    "command": "modelfit advise 'Fix an intermittent bug where two workers process the same payment webhook at once and charge the customer twice. Keep retries safe.'",
+    "result": {
+      "chunk_id": "8c0a02",
+      "wall_time_seconds": 0.000011333,
+      "exit_code": 0,
+      "original_token_count": 129,
+      "output": "Wrote reports/advice_fix_an_intermittent_bug_where_two.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       sonnet-5 / low effort\nIF NEEDED   raise effort to high before switching model\nCONFIDENCE  medium (could be read another way)\n\nWHY         your wording has \"once\" → order matters\n\nSECOND OPINION  could be NEITHER instead. If the cheapest config passes first time, the wording\n                made the task look harder than it was. Use the cheap config.\n"
+    }
+  },
+  {
+    "id": "D3",
+    "persona": "Developer",
+    "command": "modelfit advise 'Review the list of service names and return it sorted alphabetically.'",
+    "result": {
+      "chunk_id": "cf9d54",
+      "wall_time_seconds": 0.000013208,
+      "exit_code": 0,
+      "original_token_count": 96,
+      "output": "Wrote reports/advice_review_the_list_of_service_names.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       sonnet-5 / high effort\nIF NEEDED   switch to opus-4-8 at low effort before raising effort\nCONFIDENCE  high (clear read of your wording)\n\nWHY         your wording has \"review\" → needs judgement the prompt doesn't provide\n"
+    }
+  },
+  {
+    "id": "D4",
+    "persona": "Developer",
+    "command": "modelfit advise 'Check that our AES-GCM helper never reuses a nonce, even when several workers restart at the same time.'",
+    "result": {
+      "chunk_id": "3fed0c",
+      "wall_time_seconds": 0.000007875,
+      "exit_code": 0,
+      "original_token_count": 132,
+      "output": "Wrote reports/advice_check_that_our_aes_gcm_helper.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       sonnet-5 / low effort\nIF NEEDED   raise effort to high before switching model\nCONFIDENCE  medium (could be read another way)\n\nWHY         your wording has \"never\" → a condition must stay true\n\nSECOND OPINION  could be NEITHER instead. If the cheapest config passes first time, the wording\n                made the task look harder than it was. Use the cheap config.\n"
+    }
+  },
+  {
+    "id": "D5",
+    "persona": "Developer",
+    "command": "modelfit advise 'Design a migration from a synchronous REST API to an event-driven service. Compare failure modes, preserve backwards compatibility, and give me a staged rollout and rollback plan.'",
+    "result": {
+      "chunk_id": "fc28cc",
+      "wall_time_seconds": 0.000006292,
+      "exit_code": 0,
+      "original_token_count": 176,
+      "output": "Wrote reports/advice_design_a_migration_from_a_synchronous.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       opus-4-8 / high effort\nIF NEEDED   have a human review it — don't ship unattended\nCONFIDENCE  medium (could be read another way)\n\nWHY         your wording has \"design\" and \"migration\" → needs judgement the prompt doesn't\n            provide; spans a lot of code, self-directed; 3 requirements to track at\n            once\n\nSECOND OPINION  could be EFFORT instead. If it contradicts itself or drops one of your\n                conditions, it needs more thinking time. Raise effort before\n                switching to a bigger model.\n"
+    }
+  },
+  {
+    "id": "D6",
+    "persona": "Developer",
+    "command": "modelfit advise 'Fix an intermittent bug where two workers process the same payment webhook at once and charge the customer twice. Keep retries safe.' --short",
+    "result": {
+      "chunk_id": "9375be",
+      "wall_time_seconds": 0.00000775,
+      "exit_code": 0,
+      "original_token_count": 49,
+      "output": "Wrote reports/advice_fix_an_intermittent_bug_where_two.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\nsonnet-5/low → escalate if needed  [medium]\n"
+    }
+  },
+  {
+    "id": "D7",
+    "persona": "Developer",
+    "command": "modelfit advise 'Fix an intermittent bug where two workers process the same payment webhook at once and charge the customer twice. Keep retries safe.' --explain --outcome fail --used-effort low",
+    "result": {
+      "chunk_id": "3a00fa",
+      "wall_time_seconds": 0.00000775,
+      "exit_code": 0,
+      "original_token_count": 256,
+      "output": "Wrote reports/advice_fix_an_intermittent_bug_where_two.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\nRecorded outcome: fail. `modelfit lessons` counts it.\n\n=== EFFORT — self-contained logic — conditions to hold on to while you work ===\n  lever      : EFFORT\n  confidence : medium (The signals lean one way, but another result is still plausible.)\n  scores     : effort 3 (baseline 1 + signals), model 0\n\n--- why (signals that fired) ---\n  - ordered / multi-step wording (\"once\") → effort +2 — state has to survive from one step to the next\n\n--- start here ---\n  sonnet-5 at low effort\n  if it fails: raise effort to high before switching model\n\n--- not fully sure: second option ---\n  could also be NEITHER (haiku-4-5 at no extra thinking)\n  how to tell : If the cheapest config passes first time, the wording made the task look harder than it was. Use the cheap config.\n\nTurn up EFFORT, not the model. This task needs more thinking time, not more model capability.\n"
+    }
+  },
+  {
+    "id": "D-lessons",
+    "persona": "Developer",
+    "command": "modelfit lessons",
+    "result": {
+      "chunk_id": "2d2f9b",
+      "wall_time_seconds": 0.000007125,
+      "exit_code": 0,
+      "original_token_count": 184,
+      "output": "\n=== Lessons from your own advice history ===\n  - Shapes you have asked about (21 total): NEITHER 8, EFFORT 7, MODEL 4, BOTH 2.\n  - 8/21 verdicts were low confidence — the wording carried no signal. Those are the ones to double-check by hand, not to trust.\n  - Calibration: 0/1 recorded outcomes passed at the advised start config (1/21 asks have a recorded outcome; the rest are not counted either way).\n  - Recorded failures at the advised start, by shape: EFFORT (1). If one shape dominates, the plan for that shape starts too low.\n  - Standing lesson: the advisor reads wording, not meaning. When it says low confidence, believe it — crypto, SQL tuning, timezone/DST and concurrency work all look boring in a one-line prompt.\n\n"
+    }
+  },
+  {
+    "id": "B-readme",
+    "persona": "Business analyst",
+    "command": "cat README.md",
+    "result": {
+      "chunk_id": "68bff5",
+      "wall_time_seconds": 0.000007792,
+      "exit_code": 0,
+      "original_token_count": 2974,
+      "output": "# modelfit\n\n[![CI](https://github.com/dapinder-dhillon/modelfit/actions/workflows/ci.yml/badge.svg)](https://github.com/dapinder-dhillon/modelfit/actions/workflows/ci.yml)\n[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)\n[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)\n\n<img src=\"media/demo.gif\" alt=\"modelfit advise, then modelfit run --mock\" width=\"80%\" />\n\n**Stop guessing which model to use. Measure it.**\n\nMost model-selection advice is one sentence: *\"use a bigger model for complex\ntasks, otherwise a cheaper one.\"* It's useless because it never says how you'd\n*know*, and because it treats model choice as a single dial. It isn't.\n\n**Who this is for:** developers calling Claude programmatically — direct\nAPI/SDK calls, or an agent CLI (`claude`, `codex`) that exposes its own effort\nflag. \"Effort\" here is Anthropic's `thinking` parameter (or a CLI's own\nreasoning-effort flag) — a real, settable dial in code, but **not** something\nClaude Desktop or claude.ai chat expose to you. If you're chatting with Claude\nthrough either of those, there's no lever in that UI for this tool's\nrecommendations to turn — they're not for you (yet).\n\nThere are **two independent dials plus a constraint**:\n\n| Dial | What you're buying | Fixes the failure... |\n|---|---|---|\n| **Model** (Haiku→Sonnet→Opus→Fable) | raw talent / knowledge / judgement | *\"it didn't know\"* |\n| **Effort** (off→low→high thinking budget) | how long it deliberates before answering | *\"it didn't think it through\"* |\n| **Speed / cost** | the constraint you optimise inside | — |\n\nThe trick that replaces the generic advice: **the shape of the failure tells you\nwhich dial to turn.** Wrong because it missed a constraint or contradicted itself\n→ turn up *effort* (cheap). Wrong because it used the wrong API or showed shallow\njudgement → turn up the *model*.\n\n`modelfit` proves this with data. It runs a set of tasks across the whole\n**model × effort** grid, scores every run with a **deterministic** verifier\n(tests pass / exact match / required findings present — no model-graded\nfuzziness), and reports **cost-per-*solved*-task**, a Pareto frontier, and a\nper-task-type recommendation.\n\n## Install\n\nRequires Python 3.12+.\n\n```bash\npipx install git+https://github.com/dapinder-dhillon/modelfit.git\n```\n\nThat puts `modelfit` on your `PATH` — enough for `run --mock`, `run --via-cli`,\nand `advise`. For the `--real` API mode or the Pareto/projection charts, install\nwith the extras instead:\n\n```bash\npip install \"modelfit[all] @ git+https://github.com/dapinder-dhillon/modelfit.git\"\n```\n\nContributing, or want `--via-cli`'s source alongside it? Clone and use\n[Poetry](https://python-poetry.org/) instead — see [Development](#development).\n\n## Run it (no API key needed)\n\n```bash\nmodelfit run --mock\n```\n\nThis produces `reports/report.md`, `reports/results.csv`, and\n`reports/pareto.png`. The mock is deterministic and encodes the thesis, so the\nsample report visibly shows effort winning one task type and model winning\nanother.\n\n## Run it for real\n\n```bash\npip install \"modelfit[real] @ git+https://github.com/dapinder-dhillon/modelfit.git\"\nexport ANTHROPIC_API_KEY=sk-...\nmodelfit run --real --models claude-haiku-4-5 claude-sonnet-5 claude-opus-4-8\n```\n\nEffort maps to Anthropic's `thinking` budget (`off`/`low`/`high`). The same idea\nis `reasoning_effort` on OpenAI — swap the adapter in `providers.py`.\n\n## Run it through a CLI you're already logged into\n\nA third mode shells out to an already-authenticated agent CLI (`claude -p` or\n`codex exec`) instead of the SDK, so auth lives wherever that CLI already\nlogged in — **no API key is read or stored by modelfit.**\n\n```bash\nmodelfit run --via-cli claude --models claude-haiku-4-5 claude-sonnet-5\nmodelfit run --via-cli codex --models gpt-5.1 --efforts off low\n```\n\nThis spends real quota, so it asks first:\n\n```\nAbout to make 12 real CLI calls via claude. Continue? [y/N]\n```\n\nPass `--yes` to skip the prompt in a script. For `codex`, pass `--models` with\nGPT ids — the `--models` default is Anthropic's own table, which only makes\nsense for `claude`.\n\n**This mode degrades honestly instead of faking precision:**\n\n- **Effort isn't always controllable.** `claude -p --effort` has no off/none\n  level, so requesting `off` there can't be pinned — the report shows that run's\n  effort as `n/a`, never a number implying control that wasn't there. `codex`'s\n  `model_reasoning_effort` does have a `none` level, so `off` **is** controlled\n  there.\n- **Cost isn't always knowable.** When the CLI reports a cost or token usage, it's\n  used (falling back to the same placeholder `PRICING` table the other modes use\n  if only token counts came back). When it reports neither, `cost_usd` is `None`\n  and the report shows `$/solved` as `n/a` rather than inventing a number.\n- **It's directional, not precise.** The CLI may inject its own system prompt,\n  tools, or context you don't control, so \"same task in\" is less tightly\n  controlled than the SDK path — the report says so once, up top.\n\nAll tool use is disabled for the call itself (`--tools \"\"` for claude,\n`--sandbox read-only --ask-for-approval never` for codex) — a benchmark run is\none completion, not an agentic turn that should be touching your filesystem.\n\n## Before you spend anything: `advise`\n\nMeasuring is the answer, but it isn't the *first* question. The first question is\n\"I have this one task in front of me — where do I start?\" That's what `advise`\nis for: it reads the **wording** of a task and says which dial to reach for.\n\n```bash\nmodelfit advise \"Fix this retry helper so it never sleeps after the final attempt.\"\n```\n\n```\nSTART       sonnet-5 / low effort\nIF NEEDED   raise effort to high before switching model\nCONFIDENCE  high\n\nWHY         \"never\", \"after\" → a condition to hold; order matters\n```\n\nLeads with the action, not the classifier's internals — but the WHY line and\nany hedge/blind-spot warning are never hidden behind a flag; those are the\nhonesty guarantees, not decoration. Two other views:\n\n```bash\nmodelfit advise \"<task>\" --short     # one line, for the 50th call today\nmodelfit advise \"<task>\" --explain   # signal-by-signal breakdown, raw scores\n```\n\nIt also writes `reports/advice_<slug>.md` and a projection chart, and appends the\ncall to `~/.modelfit/history.json` (local file, nothing leaves your machine) —\nthat bookkeeping line prints to stderr, so `modelfit advise \"...\" > out.txt`\ncaptures only the recommendation. Record what actually happened and it feeds back:\n\n```bash\nmodelfit advise \"<task>\" --outcome pass --used-effort low\nmodelfit lessons     # your shape distribution + calibration from YOUR outcomes\n```\n\n### What `advise` is, honestly\n\n- **It reads words, not meaning.** \"Optimise this SQL query\" is six plain words\n  hiding real knowledge. It will call that NEITHER, and be wrong.\n- **No LLM is involved in the decision.** Deterministic regexes only — same text\n  in, same verdict out. An advisor that asked a model which model to use would be\n  circular, and would break the same rule the verifiers live by.\n- **It states its confidence and hedges.** Conflicting signals lower confidence\n  and print the runner-up quadrant plus how to tell the two apart from the\n  *failure* shape.\n- **Silence is not evidence of ease.** When nothing fires it does *not* say\n  \"easy\" — it says so, keeps confidence low, and names the blind spots (crypto,\n  SQL tuning, timezones/DST, concurrency).\n- **`lessons` counts only outcomes you recorded.** Never inferred.\n\nIt's a second opinion to argue with, not an oracle. `modelfit run` is the evidence.\n\n### It grades itself\n\n```bash\nmodelfit eval\n```\n\nLabelled cases live in `eval/advisor_cases.yaml` (data, same as tasks), split\ninto *clear* wording and *adversarial* wording, and both numbers are printed:\n\n```\n  overall     : 0.60  (12/20)\n  clear       : 1.00  (10/10)  — does the mechanism work?\n  adversarial : 0.20  (2/10)   — how far wording is from meaning\n```\n\nThe adversarial number is *meant* to be poor, and the misses are listed in full.\nThat gap is the caveat made measurable; blending it into one headline accuracy\nwould be the dishonest version of this tool.\n\n## Development\n\n```bash\ngit clone https://github.com/dapinder-dhillon/modelfit.git\ncd modelfit\npoetry install --with dev --extras all\npoetry run pytest                  # test suite (verifiers get the heaviest coverage)\npoetry run ruff check .            # lint\npoetry run ruff format --check .   # format check\npoetry run mypy modelfit           # types\n```\n\nCI (`.github/workflows/ci.yml`) runs all four on every push and PR.\n\n## Make it yours (this is the actual point)\n\nThe bundled tasks in `tasks/` are toys chosen to span four quadrants. **Delete\nthem** and drop in ~20 real tasks from your backlog instead — no Python\nrequired, each is just a YAML file:\n\n```yaml\n# tasks/my_real_task.yaml\nid: my_real_task\nquadrant: EFFORT              # NEITHER | EFFORT | MODEL | BOTH\nprompt: |\n  Whatever you'd actually ask a model to do.\nverifier: verify_python_callable\nfixture:\n  callable: some_function\n  tests:\n    - \"assert some_function(1) == 2\"\n```\n\nPick a verifier and give it a deterministic `fixture`:\n\n- code tasks → a few `assert`s run in a subprocess (`verify_python_callable`)\n- structured output → exact/structural compare (`verify_json_equals`)\n- judgement tasks → constrain the model to a fixed vocabulary and check the\n  required items appear (`verify_finding_set`)\n\n`modelfit run` loads every `*.yaml` in `tasks/` automatically (point elsewhere\nwith `--tasks <dir>`). Once the tasks are yours, the recommendation is yours —\nand defensible to anyone who says \"just use the big one.\" If you need a\ngenuinely new *kind* of check, that's the one place Python is still required:\nadd a verifier to `modelfit/verifiers.py`.\n\n## Layout\n\n```\ntasks/*.yaml             # your tasks: id, quadrant, prompt, verifier, fixture  <- edit this\neval/advisor_cases.yaml  # labelled cases the advisor grades itself against\nmodelfit/\n  tasks.py          # Task dataclass + load_tasks(): reads and validates tasks/*.yaml\n  verifiers.py      # deterministic pass/fail checks\n  providers.py      # model tiers, effort→budget, pricing, real call, mock, CLI-mode adapter\n  runner.py         # sweeps the grid, caches results additively\n  score.py          # cost-per-solved, Pareto frontier, per-quadrant winner\n  report.py         # markdown + CSV + Pareto PNG\n  advisor.py        # estimate(): regex signals -> quadrant + plan + confidence\n  advice_report.py  # the written verdict for one task\n  project.py        # projected pass-rate vs cost chart for one task\n  history.py        # ~/.modelfit/history.json + lessons()\n  evalset.py        # loads eval/advisor_cases.yaml, scores the advisor\n  cli.py            # `run` | `advise` | `lessons` | `eval`\n```\n\n## Honest caveats\n\n- **Pricing in `providers.py` is placeholder — confirm current numbers yourself.**\n- `verify_python_callable` executes generated code in a subprocess with a\n  timeout. Fine for a local experiment on models you chose; isolate properly\n  (container / nsjail) for anything untrusted or CI.\n- The mock's pass rates are illustrative. Only `--real`/`--via-cli` numbers are evidence.\n- `--via-cli` is directional, not precise: the CLI may inject its own system\n  prompt/tools/context, effort isn't controllable on every agent for every\n  level, and cost is `n/a` whenever the CLI didn't report usage. See \"Run it\n  through a CLI you're already logged into\" above.\n- `advise` is a heuristic over wording, not a measurement. It is deterministic and\n  it explains itself, but it cannot see difficulty the words don't carry — see its\n  own adversarial score in `modelfit eval`. The projection chart it draws is\n  modelled from the shape, not measured.\n"
+    }
+  },
+  {
+    "id": "B-mock",
+    "persona": "Business analyst",
+    "command": "modelfit run --mock",
+    "result": {
+      "chunk_id": "efc854",
+      "wall_time_seconds": 0.000015541,
+      "exit_code": 0,
+      "original_token_count": 211,
+      "output": "Running 5 tasks x 4 models x 3 efforts x 8 trials in MOCK mode...\n\n=== Recommendation by task type ===\n  NEITHER  -> haiku-4-5      effort=off   pass=100%  $0.0006/solved\n  EFFORT   -> sonnet-5       effort=high  pass=100%  $0.1522/solved\n  MODEL    -> fable-5        effort=low   pass=100%  $0.1072/solved\n  BOTH     -> opus-4-8       effort=high  pass= 88%  $0.2899/solved\n\n=== Cost-efficiency frontier (rational choices only) ===\n  haiku-4-5      effort=off   pass= 22%  $0.0026/solved\n  sonnet-5       effort=off   pass= 35%  $0.0062/solved\n  opus-4-8       effort=off   pass= 55%  $0.0066/solved\n  sonnet-5       effort=low   pass= 57%  $0.0559/solved\n  opus-4-8       effort=low   pass= 78%  $0.0692/solved\n  opus-4-8       effort=high  pass= 90%  $0.2818/solved\n\nWrote reports/report.md, results.csv (install matplotlib for the chart)\n"
+    }
+  },
+  {
+    "id": "B1",
+    "persona": "Business analyst",
+    "command": "modelfit advise 'Add up sales by region in my spreadsheet and show the totals.'",
+    "result": {
+      "chunk_id": "6da154",
+      "wall_time_seconds": 0.000007583,
+      "exit_code": 0,
+      "original_token_count": 149,
+      "output": "Wrote reports/advice_add_up_sales_by_region_in.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "B2",
+    "persona": "Business analyst",
+    "command": "modelfit advise \"Write a two-paragraph summary of this month's sales for my boss.\"",
+    "result": {
+      "chunk_id": "2abd79",
+      "wall_time_seconds": 0.000009083,
+      "exit_code": 0,
+      "original_token_count": 150,
+      "output": "Wrote reports/advice_write_a_two_paragraph_summary_of.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "B3",
+    "persona": "Business analyst",
+    "command": "modelfit advise 'Match the London and New York transaction times in my spreadsheet for the week the clocks change.'",
+    "result": {
+      "chunk_id": "2e8496",
+      "wall_time_seconds": 0.000007375,
+      "exit_code": 0,
+      "original_token_count": 150,
+      "output": "Wrote reports/advice_match_the_london_and_new_york.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "B4",
+    "persona": "Business analyst",
+    "command": "modelfit advise 'Make the SQL behind my sales dashboard faster; it takes twenty minutes to open.'",
+    "result": {
+      "chunk_id": "8ba583",
+      "wall_time_seconds": 0.000007833,
+      "exit_code": 0,
+      "original_token_count": 149,
+      "output": "Wrote reports/advice_make_the_sql_behind_my_sales.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "B5",
+    "persona": "Business analyst",
+    "command": "modelfit advise 'Explain why revenue fell even though we sold more units, separate price, volume and product-mix effects, and recommend what the sales team should do next.'",
+    "result": {
+      "chunk_id": "d5e0b0",
+      "wall_time_seconds": 0.000007625,
+      "exit_code": 0,
+      "original_token_count": 168,
+      "output": "Wrote reports/advice_explain_why_revenue_fell_even_though.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       opus-4-8 / high effort\nIF NEEDED   have a human review it — don't ship unattended\nCONFIDENCE  medium (could be read another way)\n\nWHY         your wording has \"next\", \"why\" and \"recommend\" → order matters; needs judgement the\n            prompt doesn't provide; 3 requirements to track at once\n\nSECOND OPINION  could be EFFORT instead. If it contradicts itself or drops one of your\n                conditions, it needs more thinking time. Raise effort before\n                switching to a bigger model.\n"
+    }
+  },
+  {
+    "id": "B6",
+    "persona": "Business analyst",
+    "command": "modelfit advise 'Explain why revenue fell even though we sold more units, separate price, volume and product-mix effects, and recommend what the sales team should do next.' --short",
+    "result": {
+      "chunk_id": "263e8c",
+      "wall_time_seconds": 0.000007583,
+      "exit_code": 0,
+      "original_token_count": 50,
+      "output": "Wrote reports/advice_explain_why_revenue_fell_even_though.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\nopus-4-8/high → escalate if needed  [medium]\n"
+    }
+  },
+  {
+    "id": "B7",
+    "persona": "Business analyst",
+    "command": "modelfit advise 'Explain why revenue fell even though we sold more units, separate price, volume and product-mix effects, and recommend what the sales team should do next.' --explain",
+    "result": {
+      "chunk_id": "7b1f2a",
+      "wall_time_seconds": 0.000007042,
+      "exit_code": 0,
+      "original_token_count": 326,
+      "output": "Wrote reports/advice_explain_why_revenue_fell_even_though.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\n=== BOTH — long, multi-step, self-directed change over a wide surface ===\n  lever      : BOTH — plus human review\n  confidence : medium (The signals lean one way, but another result is still plausible.)\n  scores     : effort 5 (baseline 1 + signals), model 3\n\n--- why (signals that fired) ---\n  - ordered / multi-step wording (\"next\") → effort +2 — state has to survive from one step to the next\n  - judgement / knowledge wording (\"why\", \"recommend\") → model +2 — asks for a call that cannot be derived from the prompt alone\n  - 3 separate requirements to satisfy at once → effort +2, model +1 — each one is another thing to not drop\n\n--- start here ---\n  opus-4-8 at high effort\n  if it fails: have a human review it — don't ship unattended\n\n--- not fully sure: second option ---\n  could also be EFFORT (sonnet-5 at low effort)\n  how to tell : If it contradicts itself or drops one of your conditions, it needs more thinking time. Raise effort before switching to a bigger model.\n\nTurn up BOTH and keep a human in the loop. Long, self-directed work needs a more capable model and more thinking time, and the diff still needs review.\n"
+    }
+  },
+  {
+    "id": "B-report",
+    "persona": "Business analyst",
+    "command": "cat reports/report.md",
+    "result": {
+      "chunk_id": "9b9081",
+      "wall_time_seconds": 0.000007375,
+      "exit_code": 0,
+      "original_token_count": 531,
+      "output": "# modelfit report\n\n_Mode: **mock**. Cost is per **solved** task, not per token._\n\n## The verdict, by task type\n\nWhat the failure shape tells you to turn — read straight off the data.\n\n| Task type | Use this model | Effort | Pass rate | $/solved | Why |\n|---|---|---|---|---|---|\n| NEITHER | `haiku-4-5` | off | 100% | $0.00056 | recall/boilerplate — cheapest config already wins |\n| EFFORT | `sonnet-5` | high | 100% | $0.1522 | logic to work out — **effort** carried it, not the model |\n| MODEL | `fable-5` | low | 100% | $0.1072 | needs knowledge/judgement — **model** carried it, not effort |\n| BOTH | `opus-4-8` | high | 88% | $0.2899 | long multi-step — needs a strong model **and** high effort |\n\n## Cost-efficiency frontier\n\nOnly configs on the frontier are ever rational — everything else is beaten on both quality and cost. `*` marks the frontier.\n\n| Model | Effort | Pass rate | Total cost | $/solved | Frontier |\n|---|---|---|---|---|---|\n| `opus-4-8` | high | 90% | $10.1444 | $0.2818 | * |\n| `fable-5` | high | 90% | $20.2888 | $0.5636 |  |\n| `opus-4-8` | low | 78% | $2.1444 | $0.0692 | * |\n| `fable-5` | low | 78% | $4.2888 | $0.1383 |  |\n| `sonnet-5` | high | 70% | $6.0866 | $0.2174 |  |\n| `sonnet-5` | low | 57% | $1.2866 | $0.0559 | * |\n| `opus-4-8` | off | 55% | $0.1444 | $0.00656 | * |\n| `haiku-4-5` | high | 55% | $1.6231 | $0.0738 |  |\n| `fable-5` | off | 52% | $0.2888 | $0.0138 |  |\n| `haiku-4-5` | low | 45% | $0.3431 | $0.0191 |  |\n| `sonnet-5` | off | 35% | $0.0866 | $0.00619 | * |\n| `haiku-4-5` | off | 22% | $0.0231 | $0.00257 | * |\n\n## How to read this\n\n- Look **down a quadrant**, not at one global 'best model'. The winner changes by task type — that's the whole point.\n- If a cheap model at **high effort** matches a big model, your bottleneck was deliberation, not knowledge. Don't pay for capability you don't need.\n- The only place 'just use the best model at high effort' is correct is the **BOTH** row — long, self-directed, multi-step work.\n- Now delete the toy tasks and drop in ~20 real ones from your backlog. The recommendation becomes yours, and defensible.\n"
+    }
+  },
+  {
+    "id": "P-skim",
+    "persona": "Project manager",
+    "command": "sed -n '1,40p' README.md",
+    "result": {
+      "chunk_id": "4c892c",
+      "wall_time_seconds": 0.000007333,
+      "exit_code": 0,
+      "original_token_count": 564,
+      "output": "# modelfit\n\n[![CI](https://github.com/dapinder-dhillon/modelfit/actions/workflows/ci.yml/badge.svg)](https://github.com/dapinder-dhillon/modelfit/actions/workflows/ci.yml)\n[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)\n[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)\n\n<img src=\"media/demo.gif\" alt=\"modelfit advise, then modelfit run --mock\" width=\"80%\" />\n\n**Stop guessing which model to use. Measure it.**\n\nMost model-selection advice is one sentence: *\"use a bigger model for complex\ntasks, otherwise a cheaper one.\"* It's useless because it never says how you'd\n*know*, and because it treats model choice as a single dial. It isn't.\n\n**Who this is for:** developers calling Claude programmatically — direct\nAPI/SDK calls, or an agent CLI (`claude`, `codex`) that exposes its own effort\nflag. \"Effort\" here is Anthropic's `thinking` parameter (or a CLI's own\nreasoning-effort flag) — a real, settable dial in code, but **not** something\nClaude Desktop or claude.ai chat expose to you. If you're chatting with Claude\nthrough either of those, there's no lever in that UI for this tool's\nrecommendations to turn — they're not for you (yet).\n\nThere are **two independent dials plus a constraint**:\n\n| Dial | What you're buying | Fixes the failure... |\n|---|---|---|\n| **Model** (Haiku→Sonnet→Opus→Fable) | raw talent / knowledge / judgement | *\"it didn't know\"* |\n| **Effort** (off→low→high thinking budget) | how long it deliberates before answering | *\"it didn't think it through\"* |\n| **Speed / cost** | the constraint you optimise inside | — |\n\nThe trick that replaces the generic advice: **the shape of the failure tells you\nwhich dial to turn.** Wrong because it missed a constraint or contradicted itself\n→ turn up *effort* (cheap). Wrong because it used the wrong API or showed shallow\njudgement → turn up the *model*.\n\n`modelfit` proves this with data. It runs a set of tasks across the whole\n**model × effort** grid, scores every run with a **deterministic** verifier\n(tests pass / exact match / required findings present — no model-graded\nfuzziness), and reports **cost-per-*solved*-task**, a Pareto frontier, and a\nper-task-type recommendation.\n"
+    }
+  },
+  {
+    "id": "P1",
+    "persona": "Project manager",
+    "command": "modelfit advise 'Turn these meeting notes into a short list of actions with an owner and due date for each.'",
+    "result": {
+      "chunk_id": "ed52d3",
+      "wall_time_seconds": 0.000007625,
+      "exit_code": 0,
+      "original_token_count": 150,
+      "output": "Wrote reports/advice_turn_these_meeting_notes_into_a.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "P2",
+    "persona": "Project manager",
+    "command": "modelfit advise 'Draft a polite reminder that the status update is due Friday.'",
+    "result": {
+      "chunk_id": "683c1e",
+      "wall_time_seconds": 0.000007958,
+      "exit_code": 0,
+      "original_token_count": 150,
+      "output": "Wrote reports/advice_draft_a_polite_reminder_that_the.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "P3",
+    "persona": "Project manager",
+    "command": "modelfit advise 'Review this list of attendees and put the names in alphabetical order.'",
+    "result": {
+      "chunk_id": "33d06a",
+      "wall_time_seconds": 0.000007333,
+      "exit_code": 0,
+      "original_token_count": 96,
+      "output": "Wrote reports/advice_review_this_list_of_attendees_and.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       sonnet-5 / high effort\nIF NEEDED   switch to opus-4-8 at low effort before raising effort\nCONFIDENCE  high (clear read of your wording)\n\nWHY         your wording has \"review\" → needs judgement the prompt doesn't provide\n"
+    }
+  },
+  {
+    "id": "P4",
+    "persona": "Project manager",
+    "command": "modelfit advise 'Build a recovery plan for a delayed launch across engineering, legal and marketing, identify dependencies, and recommend what to cut to keep the date.'",
+    "result": {
+      "chunk_id": "c73195",
+      "wall_time_seconds": 0.000007084,
+      "exit_code": 0,
+      "original_token_count": 173,
+      "output": "Wrote reports/advice_build_a_recovery_plan_for_a.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       opus-4-8 / high effort\nIF NEEDED   have a human review it — don't ship unattended\nCONFIDENCE  medium (could be read another way)\n\nWHY         your wording has \"recommend\" and \"across\" → needs judgement the prompt doesn't\n            provide; spans a lot of code, self-directed; 3 requirements to track at\n            once\n\nSECOND OPINION  could be EFFORT instead. If it contradicts itself or drops one of your\n                conditions, it needs more thinking time. Raise effort before\n                switching to a bigger model.\n"
+    }
+  },
+  {
+    "id": "P5",
+    "persona": "Project manager",
+    "command": "modelfit advise 'Schedule the same 9 am London status call for our New York team every Monday through March and April.'",
+    "result": {
+      "chunk_id": "7e8b8f",
+      "wall_time_seconds": 0.00000775,
+      "exit_code": 0,
+      "original_token_count": 150,
+      "output": "Wrote reports/advice_schedule_the_same_9_am_london.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "P6",
+    "persona": "Project manager",
+    "command": "modelfit advise 'Build a recovery plan for a delayed launch across engineering, legal and marketing, identify dependencies, and recommend what to cut to keep the date.' --short",
+    "result": {
+      "chunk_id": "6a186c",
+      "wall_time_seconds": 0.000007375,
+      "exit_code": 0,
+      "original_token_count": 48,
+      "output": "Wrote reports/advice_build_a_recovery_plan_for_a.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\nopus-4-8/high → escalate if needed  [medium]\n"
+    }
+  },
+  {
+    "id": "P7",
+    "persona": "Project manager",
+    "command": "modelfit advise 'Build a recovery plan for a delayed launch across engineering, legal and marketing, identify dependencies, and recommend what to cut to keep the date.' --explain",
+    "result": {
+      "chunk_id": "7d0ef7",
+      "wall_time_seconds": 0.00000775,
+      "exit_code": 0,
+      "original_token_count": 327,
+      "output": "Wrote reports/advice_build_a_recovery_plan_for_a.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\n=== BOTH — long, multi-step, self-directed change over a wide surface ===\n  lever      : BOTH — plus human review\n  confidence : medium (The signals lean one way, but another result is still plausible.)\n  scores     : effort 4 (baseline 1 + signals), model 4\n\n--- why (signals that fired) ---\n  - judgement / knowledge wording (\"recommend\") → model +2 — asks for a call that cannot be derived from the prompt alone\n  - breadth / self-directed wording (\"across\") → effort +1, model +1 — the surface to change was never enumerated for it\n  - 3 separate requirements to satisfy at once → effort +2, model +1 — each one is another thing to not drop\n\n--- start here ---\n  opus-4-8 at high effort\n  if it fails: have a human review it — don't ship unattended\n\n--- not fully sure: second option ---\n  could also be EFFORT (sonnet-5 at low effort)\n  how to tell : If it contradicts itself or drops one of your conditions, it needs more thinking time. Raise effort before switching to a bigger model.\n\nTurn up BOTH and keep a human in the loop. Long, self-directed work needs a more capable model and more thinking time, and the diff still needs review.\n"
+    }
+  },
+  {
+    "id": "S-budget",
+    "persona": "Student",
+    "command": "modelfit advise 'Explain Python list comprehensions with one small example.' --budget 0.01",
+    "result": {
+      "chunk_id": "45c9c7",
+      "wall_time_seconds": 0.000007458,
+      "exit_code": 2,
+      "original_token_count": 27,
+      "output": "usage: modelfit [-h] {run,advise,lessons,eval} ...\nmodelfit: error: unrecognized arguments: --budget 0.01\n"
+    }
+  },
+  {
+    "id": "S-help",
+    "persona": "Student",
+    "command": "modelfit advise --help",
+    "result": {
+      "chunk_id": "7a1cef",
+      "wall_time_seconds": 0.000007667,
+      "exit_code": 0,
+      "original_token_count": 249,
+      "output": "usage: modelfit advise [-h] [--short | --explain] [--out OUT] [--chart CHART]\n                       [--outcome {pass,fail}] [--used-effort {off,low,high}]\n                       text\n\npositional arguments:\n  text                  the task, in the words you'd actually use\n\noptions:\n  -h, --help            show this help message and exit\n  --short, --compact    one line: model/effort, escalation, confidence -- for\n                        repeat use\n  --explain             full signal-by-signal breakdown and raw scores -- for\n                        debugging the classifier\n  --out OUT             markdown path (default: reports/advice_*.md)\n  --chart CHART         chart path (default: reports/advice_*.png)\n  --outcome {pass,fail}\n                        record what actually happened at the advised start\n                        (feeds `lessons`)\n  --used-effort {off,low,high}\n                        the effort you actually used, recorded alongside the\n                        outcome\n"
+    }
+  },
+  {
+    "id": "S1",
+    "persona": "Student",
+    "command": "modelfit advise 'Explain Python list comprehensions with one small example.'",
+    "result": {
+      "chunk_id": "aaac5b",
+      "wall_time_seconds": 0.000007875,
+      "exit_code": 0,
+      "original_token_count": 153,
+      "output": "Wrote reports/advice_explain_python_list_comprehensions_with_one.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "S2",
+    "persona": "Student",
+    "command": "modelfit advise 'Turn these lecture notes into ten flashcards for my biology quiz.'",
+    "result": {
+      "chunk_id": "2fe2b5",
+      "wall_time_seconds": 0.000007,
+      "exit_code": 0,
+      "original_token_count": 151,
+      "output": "Wrote reports/advice_turn_these_lecture_notes_into_ten.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "S3",
+    "persona": "Student",
+    "command": "modelfit advise 'Help me prove that every finite integral domain is a field, explaining each step without assuming the theorem.'",
+    "result": {
+      "chunk_id": "9ace43",
+      "wall_time_seconds": 0.000007583,
+      "exit_code": 0,
+      "original_token_count": 95,
+      "output": "Wrote reports/advice_help_me_prove_that_every_finite.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       sonnet-5 / low effort\nIF NEEDED   raise effort to high before switching model\nCONFIDENCE  high (clear read of your wording)\n\nWHY         your wording has \"without\" and \"step\" → a condition must stay true; order matters\n"
+    }
+  },
+  {
+    "id": "S4",
+    "persona": "Student",
+    "command": "modelfit advise 'Make my SQL query faster. It joins three tables for my coursework and takes five minutes.'",
+    "result": {
+      "chunk_id": "95a9fe",
+      "wall_time_seconds": 0.000007334,
+      "exit_code": 0,
+      "original_token_count": 149,
+      "output": "Wrote reports/advice_make_my_sql_query_faster_it.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       haiku-4-5 / no extra thinking\nCONFIDENCE  low (just a guess — see below)\n\nBLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:\n                crypto, SQL tuning, timezones / DST, concurrency can all look\n                simple from the wording alone. If this task is actually one of\n                those, start with sonnet-5 at high effort yourself instead of\n                the suggestion above.\n"
+    }
+  },
+  {
+    "id": "S5",
+    "persona": "Student",
+    "command": "modelfit advise 'Compare three papers on antibiotic resistance, explain why their findings disagree, and help me defend a thesis for my final-year essay.'",
+    "result": {
+      "chunk_id": "6979d7",
+      "wall_time_seconds": 0.000007292,
+      "exit_code": 0,
+      "original_token_count": 98,
+      "output": "Wrote reports/advice_compare_three_papers_on_antibiotic_resistance.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\nSTART       sonnet-5 / high effort\nIF NEEDED   switch to opus-4-8 at low effort before raising effort\nCONFIDENCE  high (clear read of your wording)\n\nWHY         your wording has \"why\" → needs judgement the prompt doesn't provide\n"
+    }
+  },
+  {
+    "id": "S6",
+    "persona": "Student",
+    "command": "modelfit advise 'Make my SQL query faster. It joins three tables for my coursework and takes five minutes.' --short",
+    "result": {
+      "chunk_id": "e3716c",
+      "wall_time_seconds": 0.000007292,
+      "exit_code": 0,
+      "original_token_count": 41,
+      "output": "Wrote reports/advice_make_my_sql_query_faster_it.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\nhaiku-4-5/off  [low]\n"
+    }
+  },
+  {
+    "id": "S7",
+    "persona": "Student",
+    "command": "modelfit advise 'Make my SQL query faster. It joins three tables for my coursework and takes five minutes.' --explain",
+    "result": {
+      "chunk_id": "32b684",
+      "wall_time_seconds": 0.0000075,
+      "exit_code": 0,
+      "original_token_count": 312,
+      "output": "Wrote reports/advice_make_my_sql_query_faster_it.md (install matplotlib for the chart); logged to /Users/dapindersingh/.modelfit/history.json\n\n=== NEITHER — recall / boilerplate — one pass, no conditions to carry ===\n  lever      : none\n  confidence : low (There is little or nothing in the wording to go on. Treat this as a guess.)\n  scores     : effort 1 (baseline 1 + signals), model 0\n\n--- why (signals that fired) ---\n  - no signal fired — the wording is plain. That is NOT evidence the task is easy, only that the words carry no difficulty; see the blind-spot note\n\n--- start here ---\n  haiku-4-5 at no extra thinking\n\n--- not fully sure: second option ---\n  could also be MODEL (sonnet-5 at high effort)\n  how to tell : If it reaches for the wrong API, or makes a call it had no way to know was right, that's a knowledge gap — raise the model, not the effort.\n\n--- blind spot ---\n  Nothing in the wording signals difficulty, which is exactly where this tool\n  is weakest. Plain phrasing hides hard knowledge: crypto, SQL tuning, timezones / DST, concurrency.\n  If that's the subject matter, start with sonnet-5 at high effort yourself instead.\n\nNothing needs turning up. Start with the cheapest config and escalate only if it fails.\n"
+    }
+  },
+  {
+    "id": "S-run-help",
+    "persona": "Student",
+    "command": "modelfit run --help",
+    "result": {
+      "chunk_id": "609e03",
+      "wall_time_seconds": 0.000015125,
+      "exit_code": 0,
+      "original_token_count": 256,
+      "output": "usage: modelfit run [-h] [--mock | --real | --via-cli {claude,codex}]\n                    [--models MODELS [MODELS ...]]\n                    [--efforts EFFORTS [EFFORTS ...]] [--trials TRIALS]\n                    [--out OUT] [--tasks TASKS] [--no-cache] [--yes]\n\noptions:\n  -h, --help            show this help message and exit\n  --mock                deterministic offline demo (default)\n  --real                call the Anthropic API\n  --via-cli {claude,codex}\n                        run via an already-authenticated agent CLI (spends\n                        real quota; no API key stored here). For codex, pass\n                        --models with GPT ids, not the Anthropic MODELS table.\n  --models MODELS [MODELS ...]\n  --efforts EFFORTS [EFFORTS ...]\n  --trials TRIALS       repeats per cell (reliability estimate). default: 8\n                        mock, 1 real/cli\n  --out OUT\n  --tasks TASKS         directory of *.yaml task files\n  --no-cache\n  --yes                 skip the spend confirmation for --via-cli\n"
+    }
+  },
+  {
+    "id": "S-mock",
+    "persona": "Student",
+    "command": "modelfit run --mock",
+    "result": {
+      "chunk_id": "eefb59",
+      "wall_time_seconds": 0.000015417,
+      "exit_code": 0,
+      "original_token_count": 211,
+      "output": "Running 5 tasks x 4 models x 3 efforts x 8 trials in MOCK mode...\n\n=== Recommendation by task type ===\n  NEITHER  -> haiku-4-5      effort=off   pass=100%  $0.0006/solved\n  EFFORT   -> sonnet-5       effort=high  pass=100%  $0.1522/solved\n  MODEL    -> fable-5        effort=low   pass=100%  $0.1072/solved\n  BOTH     -> opus-4-8       effort=high  pass= 88%  $0.2899/solved\n\n=== Cost-efficiency frontier (rational choices only) ===\n  haiku-4-5      effort=off   pass= 22%  $0.0026/solved\n  sonnet-5       effort=off   pass= 35%  $0.0062/solved\n  opus-4-8       effort=off   pass= 55%  $0.0066/solved\n  sonnet-5       effort=low   pass= 57%  $0.0559/solved\n  opus-4-8       effort=low   pass= 78%  $0.0692/solved\n  opus-4-8       effort=high  pass= 90%  $0.2818/solved\n\nWrote reports/report.md, results.csv (install matplotlib for the chart)\n"
+    }
+  }
+]
