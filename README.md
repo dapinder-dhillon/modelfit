@@ -153,7 +153,20 @@ poetry install --with dev --extras all
 
 ## Usage
 
-### `advise` — before you spend anything
+modelfit has two halves, exposed as four commands. The halves answer different
+questions:
+
+- **`advise` predicts.** It guesses a task's shape before you run anything, to
+  coach you. Fast, free, fallible.
+- **`run` measures.** It actually runs your tasks and proves which model and
+  effort is cheapest-that-works. Slower, costs tokens, ground truth.
+
+| Command | Half | What it does |
+|---|---|---|
+| `advise` | predict | Reads a task's wording, names its shape, recommends a model tier and effort (with the Claude and OpenAI model for it), explains why, and says how clearly the wording matched. |
+| `lessons` | predict | Reflects your own advice history back at you: what your tasks tend to be. |
+| `eval` | predict | Turns the advisor on itself and reports its own accuracy. |
+| `run` | measure | Runs tasks across the model × effort grid, checks every answer deterministically, and reports cost per solved task. |
 
 ```bash
 modelfit advise "<task text>"                    # default: leads with the action
@@ -163,12 +176,6 @@ modelfit advise "<task text>" --vendor openai     # one vendor's models only (de
 modelfit advise "<task text>" --outcome pass --used-effort low   # record what happened
 modelfit advise "<task text>" --out FILE --chart FILE            # write paths (default: reports/advice_*)
 ```
-
-`--short` and `--explain` are mutually exclusive. Three things are **never**
-hidden behind a flag, at any verbosity: the WHY line (or the blind-spot warning
-in its place), the hedge shown when confidence isn't high, and the blind-spot
-warning shown when nothing fired. Those are the honesty guarantees this tool
-exists to make.
 
 It also writes `reports/advice_<slug>.md` and a projection chart, and appends
 the call to `~/.modelfit/history.json` (local file, nothing leaves your
@@ -182,28 +189,25 @@ modelfit eval        # the advisor grades itself: overall / clear / adversarial 
 
 ### `run` — measure it for real
 
+It has three execution modes:
+
+- **`--mock`** (default): a deterministic simulation. No API, no tokens, free.
+  It proves the tool works; the numbers are illustrative, **not** evidence
+  about models.
+- **`--real`**: real Anthropic API calls. Real tokens, real money, real evidence.
+- **`--via-cli`**: runs through a `claude` or `codex` CLI you're already logged
+  into, so modelfit never stores an API key. Effort and cost show as `n/a`
+  wherever the CLI can't control or report them, never faked.
+
+The trap to avoid: treating `--mock` numbers as truth. Mock proves the
+machinery; only `--real` and `--via-cli` say anything about the models.
+
 ```bash
 modelfit run --mock                                          # free, deterministic, no key
 modelfit run --real --models claude-haiku-4-5 claude-sonnet-5 # needs ANTHROPIC_API_KEY
 modelfit run --via-cli claude --models claude-haiku-4-5       # shells out to a logged-in CLI
 modelfit run --via-cli codex --models gpt-5.1 --efforts off low
 ```
-
-Common flags: `--efforts off low high`, `--trials N` (repeats per cell; default
-8 mock / 1 real·cli), `--tasks DIR` (default `tasks/`), `--out DIR` (default
-`reports/`), `--no-cache`.
-
-`--via-cli` spends real quota, so it asks first:
-
-```
-About to make 12 real CLI calls via claude. Continue? [y/N]
-```
-
-Pass `--yes` to skip the prompt in a script. For `codex`, pass `--models` with
-GPT ids — the `--models` default is Anthropic's own table, which only makes
-sense for `claude`.
-
-**`--via-cli` degrades honestly instead of faking precision:**
 
 - **Effort isn't always controllable.** `claude -p --effort` has no off/none
   level, so requesting `off` there can't be pinned — the report shows that run's
