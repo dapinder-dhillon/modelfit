@@ -21,6 +21,9 @@ All four also run in CI on every push and pull request.
 
 Every verifier must be deterministic and machine-checkable — no LLM-as-judge,
 no semantic-similarity scoring, no network calls inside a verifier. That
-discipline is what makes this tool's numbers trustworthy; see the module
-docstring in `modelfit/verifiers.py` and the README's "Layout" and "Honest
-caveats" sections before adding tasks, verifiers, or providers.
+discipline is what makes this tool's numbers trustworthy.
+
+`verify_python_callable` runs model-generated code in a subprocess with a
+timeout. Keep that boundary, and isolate further (container, nsjail, seccomp)
+before running anything untrusted or in CI. Read the README's "How it works"
+section before adding tasks, verifiers, or providers.

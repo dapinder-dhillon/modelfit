@@ -9,9 +9,6 @@ from modelfit.cli import _print_compact, _print_explain, _print_short, main
 
 _TASKS_DIR = Path(__file__).resolve().parent.parent / "tasks"
 
-# Blind-spot cases from more than one angle: the classic zero-signal task, and
-# one where a strong signal ALSO happens to fire alongside it, to make sure the
-# warning isn't only reachable through the single most obvious path.
 _BLIND_SPOT_TEXTS = [
     "Write a hello world script.",
     "Add a .gitignore file for a Node project.",
@@ -19,10 +16,6 @@ _BLIND_SPOT_TEXTS = [
 
 
 def test_every_view_shows_the_blind_spot_when_the_estimate_has_it(capsys):
-    """A flag on the Estimate object proves nothing about what a person actually
-    sees -- each rendering path has to be checked directly, not assumed to
-    inherit the flag correctly. (This is exactly the kind of gap that let an
-    earlier --short build ship without the warning at all.)"""
     for text in _BLIND_SPOT_TEXTS:
         est = advisor.estimate(text)
         assert est.hidden_knowledge_warning, f"{text!r} was expected to hit the blind spot"
@@ -140,8 +133,6 @@ _ONE_PER_PATH = [
 
 @pytest.mark.parametrize("vendor", [None, "anthropic", "openai"])
 def test_no_view_leaks_an_unfilled_tier_placeholder(vendor, capsys):
-    """Plans name a tier as `{large}`; every rendering path must fill it in.
-    Checked per view for the same reason as the blind-spot test above."""
     for text in _ONE_PER_PATH:
         est = advisor.estimate(text)
         _print_compact(est, vendor)

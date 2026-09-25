@@ -1,11 +1,3 @@
-"""
-Tests for CLI-mode (`--via-cli claude|codex`). These NEVER call a real CLI --
-`subprocess.run` is monkeypatched throughout, matching the pattern used to keep
-`verify_python_callable` tests offline. Real-CLI verification was done by hand
-(see the comment above `AGENTS` in providers.py); these tests only prove the
-plumbing and the honesty rules around it.
-"""
-
 from __future__ import annotations
 
 import json

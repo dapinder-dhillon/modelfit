@@ -1,45 +1,40 @@
-"""
-Projection chart for a single advised task.
-
-This draws the *shape of the tradeoff* the advisor's verdict implies: projected
-pass rate against projected cost, for every model x effort config, on a task of
-the estimated quadrant.
-
-It is a projection, not a measurement. The curve comes from the same
-deterministic model the mock uses (`providers._pass_probability`), so the picture
-is honest about being an illustration — the numbers you can defend come from
-`modelfit run` on your own tasks. The chart is labelled that way on purpose.
-
-matplotlib is the optional `chart` extra, so the import is guarded and a missing
-chart is a nicety lost, never an error.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
 
-from . import vendors
-from .advisor import Estimate
-from .providers import EFFORT_BUDGETS, _pass_probability, cost_usd
+from modelfit import vendors
+from modelfit.advisor import Estimate
+from modelfit.providers import (
+    CHARACTERS_PER_TOKEN,
+    EFFORT_BUDGETS,
+    MOCK_ANSWER_TOKENS,
+    MOCK_PROMPT_OVERHEAD_TOKENS,
+    _pass_probability,
+    cost_usd,
+)
+
+PERCENT_SCALE = 100
+CENTS_PER_DOLLAR = 100
+CHART_FIGURE_SIZE = (8, 5.5)
+CHART_DPI = 130
+ADVISED_START_COLOR = "#c0392b"
+SOLID_LINE = "-"
+DASHED_LINE = "--"
+HOLLOW_MARKER_FACE = "none"
 
 
 def projected_cell(
     text: str, model: str, tier: str, effort: str, quadrant: str
 ) -> tuple[float, float]:
-    """(pass_probability, cost_usd) for one cell. Token counts mirror the mock's
-    synthetic usage so the cost axis stays consistent with `modelfit run --mock`:
-    the prompt goes in, an answer plus the whole thinking budget comes out.
-    Pass probability comes from the tier alone, so two vendors' models in the
-    same tier differ here only by price -- the equivalence is assumed, which is
-    why the chart says "not measured"."""
-    in_tokens = 40 + len(text) // 4
-    out_tokens = 120 + EFFORT_BUDGETS[effort]
-    prob = _pass_probability(quadrant, vendors.TIER_RANK[tier], effort)
-    return prob, cost_usd(model, in_tokens, out_tokens)
+    in_tokens = MOCK_PROMPT_OVERHEAD_TOKENS + len(text) // CHARACTERS_PER_TOKEN
+    out_tokens = MOCK_ANSWER_TOKENS + EFFORT_BUDGETS[effort]
+    pass_probability = _pass_probability(
+        quadrant=quadrant, tier=vendors.TIER_RANK[tier], effort=effort
+    )
+    return pass_probability, cost_usd(model=model, in_tokens=in_tokens, out_tokens=out_tokens)
 
 
-def chart(est: Estimate, path: str, vendor: str | None = None) -> bool:
-    """Write the projection PNG. Returns False if matplotlib isn't installed."""
+def chart(task_estimate: Estimate, path: str, vendor: str | None = None) -> bool:
     try:
         import matplotlib
 
@@ -48,28 +43,34 @@ def chart(est: Estimate, path: str, vendor: str | None = None) -> bool:
     except Exception:
         return False
 
-    shown = vendors.chosen(vendor)
-    fig, ax = plt.subplots(figsize=(8, 5.5))
+    shown_vendors = vendors.chosen(vendor=vendor)
+    figure, axes = plt.subplots(figsize=CHART_FIGURE_SIZE)
     efforts = list(EFFORT_BUDGETS.keys())
 
-    for i, v in enumerate(shown):
-        # Solid lines and filled markers for the first vendor, dashed and hollow
-        # for the next: same-tier models at the same price land on the exact
-        # same points, and neither should hide the other.
-        style, face = ("-", None) if i == 0 else ("--", "none")
+    for vendor_index, shown_vendor in enumerate(shown_vendors):
+        line_style, marker_face = _distinguishable_line_style(vendor_index=vendor_index)
         for tier in vendors.TIERS:
-            model = v.models[tier]
-            xs: list[float] = []
-            ys: list[float] = []
-            for effort in efforts:
-                prob, cost = projected_cell(est.text, model, tier, effort, est.quadrant)
-                xs.append(cost * 100)
-                ys.append(prob * 100)
-            ax.plot(xs, ys, style, marker="o", mfc=face, lw=1.2, ms=7, alpha=0.85, label=model)
-            for effort, x, y in zip(efforts, xs, ys, strict=True):
-                ax.annotate(
+            model = shown_vendor.models[tier]
+            costs_in_cents, pass_percents = _projected_curve(
+                task_estimate=task_estimate, model=model, tier=tier, efforts=efforts
+            )
+            axes.plot(
+                costs_in_cents,
+                pass_percents,
+                line_style,
+                marker="o",
+                mfc=marker_face,
+                lw=1.2,
+                ms=7,
+                alpha=0.85,
+                label=model,
+            )
+            for effort, cost_in_cents, pass_percent in zip(
+                efforts, costs_in_cents, pass_percents, strict=True
+            ):
+                axes.annotate(
                     effort,
-                    (x, y),
+                    (cost_in_cents, pass_percent),
                     fontsize=6.5,
                     ha="center",
                     va="bottom",
@@ -77,34 +78,69 @@ def chart(est: Estimate, path: str, vendor: str | None = None) -> bool:
                     textcoords="offset points",
                 )
 
-    starts = [
-        projected_cell(
-            est.text, v.models[est.start_tier], est.start_tier, est.start_effort, est.quadrant
-        )
-        for v in shown
-    ]
-    ax.scatter(
-        [cost * 100 for _, cost in starts],
-        [prob * 100 for prob, _ in starts],
+    advised_starts = _advised_start_points(task_estimate=task_estimate, shown_vendors=shown_vendors)
+    axes.scatter(
+        [cost * CENTS_PER_DOLLAR for _, cost in advised_starts],
+        [pass_probability * PERCENT_SCALE for pass_probability, _ in advised_starts],
         s=220,
         facecolors="none",
-        edgecolors="#c0392b",
+        edgecolors=ADVISED_START_COLOR,
         linewidths=1.8,
         zorder=4,
-        label=f"advised start: {est.start_tier} tier @ {est.start_effort}",
+        label=f"advised start: {task_estimate.start_tier} tier @ {task_estimate.start_effort}",
     )
 
-    ax.set_xlabel("projected cost per attempt (cents)  → cheaper is left")
-    ax.set_ylabel("projected pass rate (%)  → better is up")
-    ax.set_title(
-        f"Projected for a {est.quadrant} task (confidence: {est.confidence})\n"
+    axes.set_xlabel("projected cost per attempt (cents)  → cheaper is left")
+    axes.set_ylabel("projected pass rate (%)  → better is up")
+    axes.set_title(
+        f"Projected for a {task_estimate.quadrant} task "
+        f"(confidence: {task_estimate.confidence})\n"
         "modelled from the shape, NOT measured — run `modelfit run` for evidence",
         fontsize=10,
     )
-    ax.grid(True, alpha=0.25)
-    ax.legend(loc="lower right", fontsize=8)
-    fig.tight_layout()
+    axes.grid(True, alpha=0.25)
+    axes.legend(loc="lower right", fontsize=8)
+    figure.tight_layout()
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path, dpi=130)
-    plt.close(fig)
+    figure.savefig(path, dpi=CHART_DPI)
+    plt.close(figure)
     return True
+
+
+def _distinguishable_line_style(vendor_index: int) -> tuple[str, str | None]:
+    if vendor_index == 0:
+        return SOLID_LINE, None
+    return DASHED_LINE, HOLLOW_MARKER_FACE
+
+
+def _projected_curve(
+    task_estimate: Estimate, model: str, tier: str, efforts: list[str]
+) -> tuple[list[float], list[float]]:
+    costs_in_cents: list[float] = []
+    pass_percents: list[float] = []
+    for effort in efforts:
+        pass_probability, cost = projected_cell(
+            text=task_estimate.text,
+            model=model,
+            tier=tier,
+            effort=effort,
+            quadrant=task_estimate.quadrant,
+        )
+        costs_in_cents.append(cost * CENTS_PER_DOLLAR)
+        pass_percents.append(pass_probability * PERCENT_SCALE)
+    return costs_in_cents, pass_percents
+
+
+def _advised_start_points(
+    task_estimate: Estimate, shown_vendors: list[vendors.Vendor]
+) -> list[tuple[float, float]]:
+    return [
+        projected_cell(
+            text=task_estimate.text,
+            model=shown_vendor.models[task_estimate.start_tier],
+            tier=task_estimate.start_tier,
+            effort=task_estimate.start_effort,
+            quadrant=task_estimate.quadrant,
+        )
+        for shown_vendor in shown_vendors
+    ]
