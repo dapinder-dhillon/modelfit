@@ -1,16 +1,3 @@
-"""
-Tests for the advisor.
-
-The advisor is a heuristic, so the tests are about the properties that make a
-heuristic trustworthy rather than about it being right every time:
-
-* the canonical classifications hold (the mechanism does what it claims),
-* every verdict explains itself (no opaque scores),
-* it is deterministic (same text -> same verdict, always),
-* it never claims confidence it hasn't earned,
-* and its adversarial weakness is *documented*, not asserted away.
-"""
-
 from __future__ import annotations
 
 import json
@@ -47,9 +34,6 @@ class TestCanonicalClassifications:
 
 class TestVendors:
     def test_every_plan_is_settable_on_every_vendor(self) -> None:
-        """The verdict names a tier; each vendor has to be able to run it as-is.
-        gpt-6-astra has no "none" reasoning level, so a plan that ever put the
-        large tier at "off" would recommend a config that can't be set."""
         from modelfit.providers import EFFORT_BUDGETS
 
         for quadrant in advisor.SHAPES:
@@ -101,19 +85,11 @@ class TestExplainsItself:
         assert advisor.distinguish_hint(None) == ""
 
     def test_review_next_to_a_mechanical_operation_is_not_judgement(self) -> None:
-        """ "Review the list and sort it" -- "review" next to a mechanical verb
-        (sort/order/alphabetize/...) is filler, not a real judgement call, so it
-        shouldn't fire judgement at all. This must classify the same whether or
-        not "review" is even in the sentence -- the word shouldn't change the
-        answer for a task that's mechanical either way."""
         with_review = advisor.estimate(WEAK_JUDGEMENT_TASK)
         without_review = advisor.estimate("Return the list of service names sorted alphabetically.")
         assert with_review.quadrant == without_review.quadrant == "NEITHER"
 
     def test_a_lone_generic_judgement_word_does_not_claim_high_confidence(self) -> None:
-        """A single generic judgement word with nothing else backing it up (no
-        mechanical verb to discount it, no other signal) is still a coin flip,
-        not a clear read -- confidence has to say so rather than commit."""
         est = advisor.estimate("Review this configuration.")
         assert est.quadrant == "MODEL"
         assert est.confidence == "medium"
@@ -126,9 +102,6 @@ class TestExplainsItself:
         assert est.runner_up is None
 
     def test_named_blind_spot_domain_gets_a_cautious_path_not_a_cheap_one(self) -> None:
-        """Naming a documented blind-spot domain (SQL, crypto, timezone,
-        concurrency) directly should route to a cautious MODEL start, not the
-        cheap NEITHER default with a warning telling the user to override it."""
         for text in (
             "Make this SQL query faster.",
             "Implement RS256 JWT signature verification.",
@@ -168,11 +141,6 @@ class TestSelfEval:
         assert result.clear_accuracy >= 0.70, f"clear accuracy fell to {result.clear_accuracy:.2f}"
 
     def test_adversarial_weakness_is_documented_not_fixed(self) -> None:
-        """NOT a target to hit. Reading words instead of meaning fails on tasks whose
-        difficulty the wording doesn't carry (crypto, SQL tuning, DST, concurrency) and
-        on false triggers ('return the list without duplicates'). This test pins the
-        gap so it stays visible: if adversarial accuracy ever matched clear accuracy,
-        the eval set would have gone soft, not the advisor smart."""
         result = evaluate(path=_CASES)
         assert result.adversarial_total >= 10
         assert result.adversarial_accuracy <= result.clear_accuracy

@@ -1,22 +1,3 @@
-"""
-The advisor's self-eval: labelled cases in, accuracy out.
-
-A heuristic that never grades itself is just an opinion with a CLI. So the cases
-live as data (`eval/advisor_cases.yaml`, loaded the same way as `tasks/*.yaml`)
-and the score is split in two on purpose:
-
-  clear       : wording that genuinely reflects the shape — does the mechanism work?
-  adversarial : plainly-worded but hard tasks, and false triggers — how far is
-                wording from meaning?
-
-The adversarial number is expected to be poor. It is printed anyway, next to the
-clear number, because that gap IS the caveat: a word-reader cannot see hard
-knowledge hiding behind calm phrasing. Hiding the gap behind a single blended
-accuracy would be the dishonest version of this tool.
-
-Grading is exact quadrant match — deterministic, like every other check here.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,19 +6,24 @@ from typing import Any
 
 import yaml
 
-from .advisor import estimate
-from .tasks import QUADRANTS
+from modelfit.advisor import estimate
+from modelfit.tasks import QUADRANTS
+
+LOCAL_CASES_PATH = "eval/advisor_cases.yaml"
+CASES_DIRECTORY_NAME = "eval"
+CASES_FILE_NAME = "advisor_cases.yaml"
 
 _REQUIRED_FIELDS = {"task", "truth"}
 _KNOWN_FIELDS = _REQUIRED_FIELDS | {"adversarial", "note"}
-
-_BUNDLED = Path(__file__).resolve().parent.parent / "eval" / "advisor_cases.yaml"
+_BUNDLED_CASES_PATH = (
+    Path(__file__).resolve().parent.parent / CASES_DIRECTORY_NAME / CASES_FILE_NAME
+)
 
 
 @dataclass(frozen=True)
 class EvalCase:
     task: str
-    truth: str  # NEITHER | EFFORT | MODEL | BOTH
+    truth: str
     adversarial: bool = False
     note: str = ""
 
@@ -65,29 +51,66 @@ class EvalResult:
     misses: list[Miss]
 
 
+GradedCase = tuple[EvalCase, str]
+
+
 def default_cases_path() -> Path:
-    """`eval/advisor_cases.yaml` under the working directory if it exists (so you
-    can point the eval at your own cases), else the copy shipped in this repo."""
-    local = Path("eval/advisor_cases.yaml")
-    return local if local.is_file() else _BUNDLED
+    local_cases_path = Path(LOCAL_CASES_PATH)
+    if local_cases_path.is_file() is True:
+        return local_cases_path
+    return _BUNDLED_CASES_PATH
+
+
+def load_cases(path: str | Path | None = None) -> list[EvalCase]:
+    cases_file = _cases_file(path=path)
+    if cases_file.is_file() is False:
+        return []
+    data = yaml.safe_load(cases_file.read_text())
+    if data is None:
+        return []
+    _validate_case_list(data=data, source=cases_file)
+    return [
+        _case_from_dict(data=item, source=cases_file, index=index)
+        for index, item in enumerate(data)
+    ]
+
+
+def evaluate(cases: list[EvalCase] | None = None, path: str | Path | None = None) -> EvalResult:
+    graded_cases = _graded_cases(eval_cases=_cases_or_loaded(cases=cases, path=path))
+    clear_cases = _clear_cases(graded_cases=graded_cases)
+    adversarial_cases = _adversarial_cases(graded_cases=graded_cases)
+    total = len(graded_cases)
+    correct = _correct_count(graded_cases=graded_cases)
+    clear_correct = _correct_count(graded_cases=clear_cases)
+    adversarial_correct = _correct_count(graded_cases=adversarial_cases)
+    return EvalResult(
+        total=total,
+        correct=correct,
+        overall_accuracy=_ratio(correct=correct, total=total),
+        clear_total=len(clear_cases),
+        clear_correct=clear_correct,
+        clear_accuracy=_ratio(correct=clear_correct, total=len(clear_cases)),
+        adversarial_total=len(adversarial_cases),
+        adversarial_correct=adversarial_correct,
+        adversarial_accuracy=_ratio(correct=adversarial_correct, total=len(adversarial_cases)),
+        misses=_misses(graded_cases=graded_cases),
+    )
+
+
+def _cases_file(path: str | Path | None) -> Path:
+    if path is not None:
+        return Path(path)
+    return default_cases_path()
+
+
+def _validate_case_list(data: Any, source: Path) -> None:
+    if isinstance(data, list) is False:
+        raise ValueError(f"{source}: expected a YAML list of cases at the top level")
 
 
 def _case_from_dict(data: Any, source: Path, index: int) -> EvalCase:
     where = f"{source}[{index}]"
-    if not isinstance(data, dict):
-        raise ValueError(f"{where}: expected a YAML mapping")
-
-    missing = _REQUIRED_FIELDS - data.keys()
-    if missing:
-        raise ValueError(f"{where}: missing required field(s) {sorted(missing)}")
-
-    unknown = data.keys() - _KNOWN_FIELDS
-    if unknown:
-        raise ValueError(f"{where}: unknown field(s) {sorted(unknown)}")
-
-    if data["truth"] not in QUADRANTS:
-        raise ValueError(f"{where}: truth must be one of {QUADRANTS}, got {data['truth']!r}")
-
+    _validate_case(data=data, where=where)
     return EvalCase(
         task=str(data["task"]),
         truth=str(data["truth"]),
@@ -96,62 +119,93 @@ def _case_from_dict(data: Any, source: Path, index: int) -> EvalCase:
     )
 
 
-def load_cases(path: str | Path | None = None) -> list[EvalCase]:
-    """Load the labelled cases. Returns an empty list if the file is absent."""
-    target = Path(path) if path is not None else default_cases_path()
-    if not target.is_file():
-        return []
+def _validate_case(data: Any, where: str) -> None:
+    _validate_is_mapping(data=data, where=where)
+    _validate_no_missing_fields(data=data, where=where)
+    _validate_no_unknown_fields(data=data, where=where)
+    _validate_truth(data=data, where=where)
 
-    data = yaml.safe_load(target.read_text())
-    if data is None:
-        return []
-    if not isinstance(data, list):
-        raise ValueError(f"{target}: expected a YAML list of cases at the top level")
-    return [_case_from_dict(item, target, i) for i, item in enumerate(data)]
+
+def _validate_is_mapping(data: Any, where: str) -> None:
+    if isinstance(data, dict) is False:
+        raise ValueError(f"{where}: expected a YAML mapping")
+
+
+def _validate_no_missing_fields(data: dict[str, Any], where: str) -> None:
+    missing = _REQUIRED_FIELDS - data.keys()
+    if len(missing) > 0:
+        raise ValueError(f"{where}: missing required field(s) {sorted(missing)}")
+
+
+def _validate_no_unknown_fields(data: dict[str, Any], where: str) -> None:
+    unknown = data.keys() - _KNOWN_FIELDS
+    if len(unknown) > 0:
+        raise ValueError(f"{where}: unknown field(s) {sorted(unknown)}")
+
+
+def _validate_truth(data: dict[str, Any], where: str) -> None:
+    if data["truth"] not in QUADRANTS:
+        raise ValueError(f"{where}: truth must be one of {QUADRANTS}, got {data['truth']!r}")
+
+
+def _cases_or_loaded(cases: list[EvalCase] | None, path: str | Path | None) -> list[EvalCase]:
+    if cases is not None:
+        return cases
+    return load_cases(path=path)
+
+
+def _graded_cases(eval_cases: list[EvalCase]) -> list[GradedCase]:
+    graded_cases: list[GradedCase] = []
+    for eval_case in eval_cases:
+        graded_cases.append((eval_case, estimate(text=eval_case.task).quadrant))
+    return graded_cases
+
+
+def _clear_cases(graded_cases: list[GradedCase]) -> list[GradedCase]:
+    return [graded for graded in graded_cases if _is_adversarial(eval_case=graded[0]) is False]
+
+
+def _adversarial_cases(graded_cases: list[GradedCase]) -> list[GradedCase]:
+    return [graded for graded in graded_cases if _is_adversarial(eval_case=graded[0]) is True]
+
+
+def _is_adversarial(eval_case: EvalCase) -> bool:
+    if bool(eval_case.adversarial) is True:
+        return True
+    return False
+
+
+def _is_hit(graded_case: GradedCase) -> bool:
+    eval_case, predicted = graded_case
+    if predicted == eval_case.truth:
+        return True
+    return False
+
+
+def _correct_count(graded_cases: list[GradedCase]) -> int:
+    return sum(1 for graded in graded_cases if _is_hit(graded_case=graded) is True)
+
+
+def _misses(graded_cases: list[GradedCase]) -> list[Miss]:
+    misses: list[Miss] = []
+    for graded in graded_cases:
+        if _is_hit(graded_case=graded) is False:
+            misses.append(_miss(graded_case=graded))
+    return misses
+
+
+def _miss(graded_case: GradedCase) -> Miss:
+    eval_case, predicted = graded_case
+    return Miss(
+        task=eval_case.task,
+        truth=eval_case.truth,
+        predicted=predicted,
+        adversarial=eval_case.adversarial,
+        note=eval_case.note,
+    )
 
 
 def _ratio(correct: int, total: int) -> float:
-    return correct / total if total else 0.0
-
-
-def evaluate(cases: list[EvalCase] | None = None, path: str | Path | None = None) -> EvalResult:
-    """Score `estimate()` against the labelled cases. Exact quadrant match only."""
-    items = cases if cases is not None else load_cases(path)
-
-    correct = clear_total = clear_correct = adv_total = adv_correct = 0
-    misses: list[Miss] = []
-
-    for case in items:
-        predicted = estimate(case.task).quadrant
-        hit = predicted == case.truth
-        correct += hit
-        if case.adversarial:
-            adv_total += 1
-            adv_correct += hit
-        else:
-            clear_total += 1
-            clear_correct += hit
-        if not hit:
-            misses.append(
-                Miss(
-                    task=case.task,
-                    truth=case.truth,
-                    predicted=predicted,
-                    adversarial=case.adversarial,
-                    note=case.note,
-                )
-            )
-
-    total = len(items)
-    return EvalResult(
-        total=total,
-        correct=correct,
-        overall_accuracy=_ratio(correct, total),
-        clear_total=clear_total,
-        clear_correct=clear_correct,
-        clear_accuracy=_ratio(clear_correct, clear_total),
-        adversarial_total=adv_total,
-        adversarial_correct=adv_correct,
-        adversarial_accuracy=_ratio(adv_correct, adv_total),
-        misses=misses,
-    )
+    if total != 0:
+        return correct / total
+    return 0.0

@@ -1,111 +1,173 @@
-"""
-The written verdict for one advised task.
-
-Same principle as `report.py`: the artifact has to survive being read by someone
-who wasn't there and is sceptical. So it prints the signals that fired (not just
-the answer), states its confidence, shows the runner-up whenever it isn't sure,
-and ends with a footer that says plainly what this is — a heuristic read of
-wording, not evidence.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
 
-from . import vendors
-from .advisor import BLIND_SPOTS, Estimate, confidence_note, distinguish_hint, plan_for, teach_line
+from modelfit import vendors
+from modelfit.advisor import (
+    BLIND_SPOTS,
+    HIGH_CONFIDENCE,
+    Estimate,
+    confidence_note,
+    distinguish_hint,
+    plan_for,
+    teach_line,
+)
+from modelfit.vendors import Vendor
 
 
-def render(est: Estimate, chart_rel: str | None = None, vendor: str | None = None) -> str:
-    """Render the advice as markdown. Leads with the action (what to run, and
-    what to do if it fails) before the classification that justifies it --
-    someone skimming should get the verdict without reading the reasoning."""
-    shown = vendors.chosen(vendor)
+def render(task_estimate: Estimate, chart_rel: str | None = None, vendor: str | None = None) -> str:
+    shown_vendors = vendors.chosen(vendor=vendor)
     lines: list[str] = []
-    lines.append("# modelfit advice\n")
-    lines.append("_Read from the wording only. No model was asked. Same text → same verdict._\n")
-
-    lines.append("## The task\n")
-    for line in est.text.splitlines() or [""]:
-        lines.append(f"> {line}")
-    lines.append("")
-
-    lines.append("## Recommendation\n")
-    if len(shown) == 1:
-        model = shown[0].models[est.start_tier]
-        lines.append(f"**Start at `{model}` with effort `{est.start_effort}`.**\n")
-    else:
-        lines.append(f"**Start on the {est.start_tier} tier with effort `{est.start_effort}`:**\n")
-        for v in shown:
-            lines.append(f"- {v.label}: `{v.models[est.start_tier]}`")
-        lines.append(
-            "\n_Tiers line up only roughly across vendors — a starting guess, not a "
-            "measured equivalence._\n"
-        )
-    if est.escalate_to:
-        lines.append(f"If it fails: **{vendors.fill(est.escalate_to, shown)}**.\n")
-    else:
-        lines.append(
-            "There is nothing to escalate to by default — if this fails, the wording "
-            "misled the advisor, so re-read the failure before spending more.\n"
-        )
-    lines.append(
-        f"**Signal:** {est.confidence} — how clearly the wording matched, "
-        "not how likely this is to succeed.\n"
-    )
-
-    lines.append("## Why\n")
-    lines.append(f"Shape: **{est.quadrant}** — {est.shape}.\n")
-    lines.append(f"{est.why_short}\n")
-    lines.append("<details><summary>Full signal breakdown</summary>\n")
-    for reason in est.reasons:
-        lines.append(f"- {reason}")
-    lines.append(
-        f"\nScores: effort {est.effort_score} (baseline 1 + signals), model {est.model_score}.\n"
-    )
-    lines.append(f"{confidence_note(est.confidence)}\n")
-    lines.append(f"{teach_line(est)}\n")
-    lines.append("</details>\n")
-
-    if est.confidence != "high" and est.runner_up:
-        alt_tier, alt_effort, alt_escalate = plan_for(est.runner_up)
-        lines.append("## Not fully sure — second option\n")
-        lines.append(
-            f"This could also be shaped like **{est.runner_up}** "
-            f"(start {vendors.names(alt_tier, shown)} at effort `{alt_effort}`"
-            + (f"; if it fails: {vendors.fill(alt_escalate, shown)}" if alt_escalate else "")
-            + ").\n"
-        )
-        lines.append(f"**How to tell:** {distinguish_hint(est.runner_up)}\n")
-
-    if est.hidden_knowledge_warning:
-        lines.append("## Blind spot — wording can hide difficulty\n")
-        lines.append(
-            "Nothing in this prompt signals difficulty, and that is exactly the case this "
-            "tool is weakest on. Plain wording hides hard knowledge: "
-            f"{', '.join(BLIND_SPOTS)}. A one-line ask can be a MODEL task in disguise.\n"
-        )
-        lines.append(
-            "If the subject matter is any of those, use the second option above instead "
-            "of the recommendation at the top.\n"
-        )
-
-    if chart_rel:
-        lines.append(f"![Projected pass rate vs cost]({chart_rel})\n")
-
-    lines.append("---\n")
-    lines.append(
-        "_Heuristic read of the wording, not a measurement: it sees words, not meaning. "
-        "It states its confidence and hedges when it is unsure, and it never calls a model "
-        "to decide. Treat it as a second opinion to argue with, not an oracle — "
-        "`modelfit run` is where the evidence comes from._\n"
-    )
+    lines += _title_lines()
+    lines += _task_lines(task_estimate=task_estimate)
+    lines += _recommendation_lines(task_estimate=task_estimate, shown_vendors=shown_vendors)
+    lines += _why_lines(task_estimate=task_estimate)
+    lines += _second_option_lines(task_estimate=task_estimate, shown_vendors=shown_vendors)
+    lines += _blind_spot_lines(task_estimate=task_estimate)
+    lines += _chart_lines(chart_rel=chart_rel)
+    lines += _footer_lines()
     return "\n".join(lines)
 
 
-def write(est: Estimate, path: str, chart_rel: str | None = None, vendor: str | None = None) -> str:
-    """Write the advice markdown to `path`. Returns the path written."""
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(render(est, chart_rel, vendor))
-    return str(target)
+def write(
+    task_estimate: Estimate, path: str, chart_rel: str | None = None, vendor: str | None = None
+) -> str:
+    report_file = Path(path)
+    report_file.parent.mkdir(parents=True, exist_ok=True)
+    report_file.write_text(render(task_estimate=task_estimate, chart_rel=chart_rel, vendor=vendor))
+    return str(report_file)
+
+
+def _title_lines() -> list[str]:
+    return [
+        "# modelfit advice\n",
+        "_Read from the wording only. No model was asked. Same text → same verdict._\n",
+    ]
+
+
+def _task_lines(task_estimate: Estimate) -> list[str]:
+    lines = ["## The task\n"]
+    for line in _task_text_lines(text=task_estimate.text):
+        lines.append(f"> {line}")
+    lines.append("")
+    return lines
+
+
+def _task_text_lines(text: str) -> list[str]:
+    text_lines = text.splitlines()
+    if len(text_lines) == 0:
+        return [""]
+    return text_lines
+
+
+def _recommendation_lines(task_estimate: Estimate, shown_vendors: list[Vendor]) -> list[str]:
+    lines = ["## Recommendation\n"]
+    lines += _start_lines(task_estimate=task_estimate, shown_vendors=shown_vendors)
+    lines.append(_escalation_line(task_estimate=task_estimate, shown_vendors=shown_vendors))
+    lines.append(
+        f"**Signal:** {task_estimate.confidence} — how clearly the wording matched, "
+        "not how likely this is to succeed.\n"
+    )
+    return lines
+
+
+def _start_lines(task_estimate: Estimate, shown_vendors: list[Vendor]) -> list[str]:
+    if len(shown_vendors) == 1:
+        model = shown_vendors[0].models[task_estimate.start_tier]
+        return [f"**Start at `{model}` with effort `{task_estimate.start_effort}`.**\n"]
+    lines = [
+        f"**Start on the {task_estimate.start_tier} tier with effort "
+        f"`{task_estimate.start_effort}`:**\n"
+    ]
+    for shown_vendor in shown_vendors:
+        lines.append(f"- {shown_vendor.label}: `{shown_vendor.models[task_estimate.start_tier]}`")
+    lines.append(
+        "\n_Tiers line up only roughly across vendors — a starting guess, not a "
+        "measured equivalence._\n"
+    )
+    return lines
+
+
+def _escalation_line(task_estimate: Estimate, shown_vendors: list[Vendor]) -> str:
+    escalate_to = task_estimate.escalate_to
+    if escalate_to is not None and len(escalate_to) > 0:
+        return f"If it fails: **{vendors.fill(text=escalate_to, shown_vendors=shown_vendors)}**.\n"
+    return (
+        "There is nothing to escalate to by default — if this fails, the wording "
+        "misled the advisor, so re-read the failure before spending more.\n"
+    )
+
+
+def _why_lines(task_estimate: Estimate) -> list[str]:
+    lines = [
+        "## Why\n",
+        f"Shape: **{task_estimate.quadrant}** — {task_estimate.shape}.\n",
+        f"{task_estimate.why_short}\n",
+        "<details><summary>Full signal breakdown</summary>\n",
+    ]
+    for reason in task_estimate.reasons:
+        lines.append(f"- {reason}")
+    lines.append(
+        f"\nScores: effort {task_estimate.effort_score} (baseline 1 + signals), "
+        f"model {task_estimate.model_score}.\n"
+    )
+    lines.append(f"{confidence_note(confidence=task_estimate.confidence)}\n")
+    lines.append(f"{teach_line(task_estimate=task_estimate)}\n")
+    lines.append("</details>\n")
+    return lines
+
+
+def _second_option_lines(task_estimate: Estimate, shown_vendors: list[Vendor]) -> list[str]:
+    runner_up = task_estimate.runner_up
+    if task_estimate.confidence == HIGH_CONFIDENCE or runner_up is None or len(runner_up) == 0:
+        return []
+    alternative_tier, alternative_effort, alternative_escalation = plan_for(quadrant=runner_up)
+    alternative_names = vendors.names(tier=alternative_tier, shown_vendors=shown_vendors)
+    return [
+        "## Not fully sure — second option\n",
+        f"This could also be shaped like **{runner_up}** "
+        f"(start {alternative_names} at effort `{alternative_effort}`"
+        + _alternative_escalation_clause(
+            alternative_escalation=alternative_escalation, shown_vendors=shown_vendors
+        )
+        + ").\n",
+        f"**How to tell:** {distinguish_hint(runner_up=runner_up)}\n",
+    ]
+
+
+def _alternative_escalation_clause(
+    alternative_escalation: str | None, shown_vendors: list[Vendor]
+) -> str:
+    if alternative_escalation is not None and len(alternative_escalation) > 0:
+        filled = vendors.fill(text=alternative_escalation, shown_vendors=shown_vendors)
+        return f"; if it fails: {filled}"
+    return ""
+
+
+def _blind_spot_lines(task_estimate: Estimate) -> list[str]:
+    if task_estimate.hidden_knowledge_warning is False:
+        return []
+    return [
+        "## Blind spot — wording can hide difficulty\n",
+        "Nothing in this prompt signals difficulty, and that is exactly the case this "
+        "tool is weakest on. Plain wording hides hard knowledge: "
+        f"{', '.join(BLIND_SPOTS)}. A one-line ask can be a MODEL task in disguise.\n",
+        "If the subject matter is any of those, use the second option above instead "
+        "of the recommendation at the top.\n",
+    ]
+
+
+def _chart_lines(chart_rel: str | None) -> list[str]:
+    if chart_rel is not None and len(chart_rel) > 0:
+        return [f"![Projected pass rate vs cost]({chart_rel})\n"]
+    return []
+
+
+def _footer_lines() -> list[str]:
+    return [
+        "---\n",
+        "_Heuristic read of the wording, not a measurement: it sees words, not meaning. "
+        "It states its confidence and hedges when it is unsure, and it never calls a model "
+        "to decide. Treat it as a second opinion to argue with, not an oracle — "
+        "`modelfit run` is where the evidence comes from._\n",
+    ]

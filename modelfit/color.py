@@ -1,19 +1,17 @@
-"""
-Terminal color, plain ANSI -- no dependency for a handful of escape codes.
-
-Decoration only: every string this module returns is identical content with
-or without color, so nothing here can change what a test asserts on, and
-nothing here is load-bearing for any of the tool's actual output. It's off
-whenever stdout isn't a real terminal (pipes, redirects, `capsys` in tests)
-or `NO_COLOR` is set, so scripts and CI stay exactly as before.
-"""
-
 from __future__ import annotations
 
 import os
 import sys
 
-_CODES: dict[str, str] = {
+NO_COLOR_ENVIRONMENT_VARIABLE = "NO_COLOR"
+RESET_STYLE = "reset"
+DEFAULT_CONFIDENCE_STYLE = "cyan"
+QUADRANT_STYLES = ("bold",)
+HEADING_STYLES = ("bold", "cyan")
+LABEL_STYLES = ("dim",)
+ACTION_STYLES = ("bold",)
+
+_ANSI_CODES: dict[str, str] = {
     "reset": "\033[0m",
     "bold": "\033[1m",
     "dim": "\033[2m",
@@ -25,11 +23,6 @@ _CODES: dict[str, str] = {
     "cyan": "\033[36m",
 }
 
-# Confidence maps to conventional traffic-light semantics -- that one's a fair
-# use of color. Quadrant name does NOT get its own color scale: an ordinal
-# green->yellow->magenta->red "cost" mapping doesn't survive contact with
-# normal terminal conventions (red reads as error/danger, not "priciest but
-# legitimate"), and it isn't an intuitive ordinal scale to begin with.
 CONFIDENCE_STYLE: dict[str, str] = {
     "high": "green",
     "medium": "yellow",
@@ -38,39 +31,42 @@ CONFIDENCE_STYLE: dict[str, str] = {
 
 
 def enabled() -> bool:
-    if os.environ.get("NO_COLOR"):
+    if _is_no_color_requested() is True:
         return False
-    return sys.stdout.isatty()
+    if bool(sys.stdout.isatty()) is True:
+        return True
+    return False
 
 
 def c(text: str, *styles: str) -> str:
-    """Wrap `text` in the given style codes if color is on, else return it as-is."""
-    if not styles or not enabled():
+    if len(styles) == 0 or enabled() is False:
         return text
-    prefix = "".join(_CODES[s] for s in styles)
-    return f"{prefix}{text}{_CODES['reset']}"
+    prefix = "".join(_ANSI_CODES[style] for style in styles)
+    return f"{prefix}{text}{_ANSI_CODES[RESET_STYLE]}"
 
 
 def quadrant(name: str) -> str:
-    """A quadrant name wherever it appears inline -- bold for identity, no hue,
-    so it never implies an ordinal or error/danger reading it doesn't have."""
-    return c(name, "bold")
+    return c(name, *QUADRANT_STYLES)
 
 
 def confidence(level: str) -> str:
-    return c(level, CONFIDENCE_STYLE.get(level, "cyan"))
+    return c(level, CONFIDENCE_STYLE.get(level, DEFAULT_CONFIDENCE_STYLE))
 
 
 def heading(text: str) -> str:
-    return c(text, "bold", "cyan")
+    return c(text, *HEADING_STYLES)
 
 
 def label(text: str) -> str:
-    """A field label (START, WHY, ...) -- dim, so it recedes behind its value.
-    The recommendation should be the loudest thing on screen, not its caption."""
-    return c(text, "dim")
+    return c(text, *LABEL_STYLES)
 
 
 def action(text: str) -> str:
-    """The one thing a user actually needs to read: what to run."""
-    return c(text, "bold")
+    return c(text, *ACTION_STYLES)
+
+
+def _is_no_color_requested() -> bool:
+    no_color = os.environ.get(NO_COLOR_ENVIRONMENT_VARIABLE)
+    if no_color is not None and len(no_color) > 0:
+        return True
+    return False
