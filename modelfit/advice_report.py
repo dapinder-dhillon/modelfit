@@ -12,17 +12,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from . import vendors
 from .advisor import BLIND_SPOTS, Estimate, confidence_note, distinguish_hint, plan_for, teach_line
 
 
-def _short(model: str) -> str:
-    return model.replace("claude-", "")
-
-
-def render(est: Estimate, chart_rel: str | None = None) -> str:
+def render(est: Estimate, chart_rel: str | None = None, vendor: str | None = None) -> str:
     """Render the advice as markdown. Leads with the action (what to run, and
     what to do if it fails) before the classification that justifies it --
     someone skimming should get the verdict without reading the reasoning."""
+    shown = vendors.chosen(vendor)
     lines: list[str] = []
     lines.append("# modelfit advice\n")
     lines.append("_Read from the wording only. No model was asked. Same text → same verdict._\n")
@@ -33,9 +31,19 @@ def render(est: Estimate, chart_rel: str | None = None) -> str:
     lines.append("")
 
     lines.append("## Recommendation\n")
-    lines.append(f"**Start at `{_short(est.start_model)}` with effort `{est.start_effort}`.**\n")
+    if len(shown) == 1:
+        model = shown[0].models[est.start_tier]
+        lines.append(f"**Start at `{model}` with effort `{est.start_effort}`.**\n")
+    else:
+        lines.append(f"**Start on the {est.start_tier} tier with effort `{est.start_effort}`:**\n")
+        for v in shown:
+            lines.append(f"- {v.label}: `{v.models[est.start_tier]}`")
+        lines.append(
+            "\n_Tiers line up only roughly across vendors — a starting guess, not a "
+            "measured equivalence._\n"
+        )
     if est.escalate_to:
-        lines.append(f"If it fails: **{est.escalate_to}**.\n")
+        lines.append(f"If it fails: **{vendors.fill(est.escalate_to, shown)}**.\n")
     else:
         lines.append(
             "There is nothing to escalate to by default — if this fails, the wording "
@@ -60,12 +68,12 @@ def render(est: Estimate, chart_rel: str | None = None) -> str:
     lines.append("</details>\n")
 
     if est.confidence != "high" and est.runner_up:
-        alt_model, alt_effort, alt_escalate = plan_for(est.runner_up)
+        alt_tier, alt_effort, alt_escalate = plan_for(est.runner_up)
         lines.append("## Not fully sure — second option\n")
         lines.append(
             f"This could also be shaped like **{est.runner_up}** "
-            f"(start `{_short(alt_model)}` at effort `{alt_effort}`"
-            + (f"; if it fails: {alt_escalate}" if alt_escalate else "")
+            f"(start {vendors.names(alt_tier, shown)} at effort `{alt_effort}`"
+            + (f"; if it fails: {vendors.fill(alt_escalate, shown)}" if alt_escalate else "")
             + ").\n"
         )
         lines.append(f"**How to tell:** {distinguish_hint(est.runner_up)}\n")
@@ -95,9 +103,9 @@ def render(est: Estimate, chart_rel: str | None = None) -> str:
     return "\n".join(lines)
 
 
-def write(est: Estimate, path: str, chart_rel: str | None = None) -> str:
+def write(est: Estimate, path: str, chart_rel: str | None = None, vendor: str | None = None) -> str:
     """Write the advice markdown to `path`. Returns the path written."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(render(est, chart_rel))
+    target.write_text(render(est, chart_rel, vendor))
     return str(target)

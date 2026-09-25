@@ -1,7 +1,7 @@
 """
 CLI:
   python -m modelfit.cli run [--mock|--real|--via-cli {claude,codex}] [--models...] [--efforts...]
-  python -m modelfit.cli advise "<task text>" [--out ...] [--chart ...]
+  python -m modelfit.cli advise "<task text>" [--vendor ...] [--out ...] [--chart ...]
   python -m modelfit.cli lessons
   python -m modelfit.cli eval
 
@@ -23,7 +23,7 @@ import re
 import sys
 import textwrap
 
-from . import advice_report, advisor, color, history, project, score
+from . import advice_report, advisor, color, history, project, score, vendors
 from .evalset import evaluate
 from .providers import AGENTS, EFFORT_BUDGETS, MODELS
 from .report import write_csv, write_markdown, write_pareto_png
@@ -150,11 +150,13 @@ def _field(label_text: str, value: str, width: int = 12, total_width: int = 96) 
     print(f"{color.label(f'{label_text:<{width}}')}{wrapped}")
 
 
-def _print_short(est: advisor.Estimate) -> None:
+def _print_short(est: advisor.Estimate, vendor: str | None = None) -> None:
     """One line. For the person running this 50x/day who already knows the tool.
-    Still can't say "escalate" for BOTH -- there's no bigger config above
-    opus/high, so the honest next step is a human, not another escalation."""
-    start = f"{est.start_model.replace('claude-', '')}/{est.start_effort}"
+    Still can't say "escalate" for BOTH -- there's no bigger config above the
+    large tier at high effort, so the honest next step is a human, not another
+    escalation."""
+    shown = vendors.chosen(vendor)
+    start = " or ".join(v.models[est.start_tier] for v in shown) + f" @ {est.start_effort}"
     if est.quadrant == "BOTH":
         tail = " → human review if it fails"
     elif est.escalate_to:
@@ -167,15 +169,22 @@ def _print_short(est: advisor.Estimate) -> None:
     print(f"{start}{tail}  [{conf}]")
 
 
-def _print_compact(est: advisor.Estimate) -> None:
+def _print_compact(est: advisor.Estimate, vendor: str | None = None) -> None:
     """The default: lead with the action, not the classifier's internals.
     Still honors the tool's honesty invariants -- WHY always shows (or BLIND
     SPOT in its place), and a hedge always shows when confidence isn't high."""
-    start = f"{est.start_model.replace('claude-', '')} / {advisor.effort_phrase(est.start_effort)}"
+    shown = vendors.chosen(vendor)
+    effort = advisor.effort_phrase(est.start_effort)
     print()
-    _field("START", color.action(start))
+    if len(shown) == 1:
+        _field("START", color.action(f"{shown[0].models[est.start_tier]} / {effort}"))
+    else:
+        # One complete, copyable line per vendor: "if you use X, start here".
+        for i, v in enumerate(shown):
+            config = color.action(f"{v.models[est.start_tier]} / {effort}")
+            _field("START" if i == 0 else "", f"{color.label(f'{v.label:<11}')}{config}")
     if est.escalate_to:
-        _field("IF NEEDED", est.escalate_to)
+        _field("IF NEEDED", vendors.fill(est.escalate_to, shown))
     # Called SIGNAL, not CONFIDENCE: this measures how clearly the wording
     # matched a pattern, not how likely the recommendation is to succeed. Those
     # are different claims, and only one of them is something regex matching can
@@ -189,8 +198,8 @@ def _print_compact(est: advisor.Estimate) -> None:
         # runner_up is always "MODEL" here (see _confidence's NEITHER branch) --
         # naming the concrete alternative beats telling the user to "override"
         # a result with no flag or mechanism to actually do that.
-        alt_model, alt_effort, _ = advisor.plan_for(est.runner_up or "MODEL")
-        alt = f"{alt_model.replace('claude-', '')} at {advisor.effort_phrase(alt_effort)}"
+        alt_tier, alt_effort, _ = advisor.plan_for(est.runner_up or "MODEL")
+        alt = f"{vendors.names(alt_tier, shown)} at {advisor.effort_phrase(alt_effort)}"
         blind = (
             "Nothing in the wording signals difficulty. That is this tool's blind spot: "
             + ", ".join(advisor.BLIND_SPOTS)
@@ -209,9 +218,10 @@ def _print_compact(est: advisor.Estimate) -> None:
         _field("SECOND OPINION", second, width=16)
 
 
-def _print_explain(est: advisor.Estimate) -> None:
+def _print_explain(est: advisor.Estimate, vendor: str | None = None) -> None:
     """Every signal, the raw scores (baseline included, so the arithmetic is
     checkable), and the full prose -- the debug view, not the daily one."""
+    shown = vendors.chosen(vendor)
     print(
         f"\n{color.heading('===')} {color.quadrant(est.quadrant)} "
         f"{color.heading(f'— {est.shape} ===')}"
@@ -229,23 +239,29 @@ def _print_explain(est: advisor.Estimate) -> None:
         print(f"  - {reason}")
 
     print(color.heading("\n--- start here ---"))
-    start_phrase = advisor.effort_phrase(est.start_effort)
-    print(f"  {est.start_model.replace('claude-', '')} at {start_phrase}")
+    print(f"  {est.start_tier} tier at {advisor.effort_phrase(est.start_effort)}")
+    for v in shown:
+        print(f"    {v.label:<11}{v.models[est.start_tier]}")
     if est.escalate_to:
-        print(f"  if it fails: {est.escalate_to}")
+        print(f"  if it fails: {vendors.fill(est.escalate_to, shown)}")
+    if len(shown) > 1:
+        print(
+            "  (tiers line up only roughly across vendors -- `modelfit run` measures\n"
+            "   which one is actually cheaper per solved task on your work)"
+        )
 
     if est.confidence != "high" and est.runner_up:
-        alt_model, alt_effort, _ = advisor.plan_for(est.runner_up)
+        alt_tier, alt_effort, _ = advisor.plan_for(est.runner_up)
         print(color.heading("\n--- not fully sure: second option ---"))
         print(
             f"  could also be {color.quadrant(est.runner_up)} "
-            f"({alt_model.replace('claude-', '')} at {advisor.effort_phrase(alt_effort)})"
+            f"({vendors.names(alt_tier, shown)} at {advisor.effort_phrase(alt_effort)})"
         )
         print(f"  how to tell : {advisor.distinguish_hint(est.runner_up)}")
 
     if est.hidden_knowledge_warning:
-        alt_model, alt_effort, _ = advisor.plan_for(est.runner_up or "MODEL")
-        alt = f"{alt_model.replace('claude-', '')} at {advisor.effort_phrase(alt_effort)}"
+        alt_tier, alt_effort, _ = advisor.plan_for(est.runner_up or "MODEL")
+        alt = f"{vendors.names(alt_tier, shown)} at {advisor.effort_phrase(alt_effort)}"
         print(color.heading("\n--- blind spot ---"))
         print(
             "  Nothing in the wording signals difficulty, which is exactly where this tool\n"
@@ -268,17 +284,17 @@ def _cmd_advise(args: argparse.Namespace, ap: argparse.ArgumentParser) -> int:
     chart_path = args.chart or f"reports/advice_{stem}.png"
 
     if args.short:
-        _print_short(est)
+        _print_short(est, args.vendor)
     elif args.explain:
-        _print_explain(est)
+        _print_explain(est, args.vendor)
     else:
-        _print_compact(est)
+        _print_compact(est, args.vendor)
 
     # Bookkeeping, not the answer -- stderr, so `modelfit advise "..." > out`
     # captures only the recommendation, never file paths or log confirmations.
-    has_png = project.chart(est, chart_path)
+    has_png = project.chart(est, chart_path, args.vendor)
     chart_rel = chart_path.rsplit("/", 1)[-1] if has_png else None
-    written = advice_report.write(est, out_path, chart_rel)
+    written = advice_report.write(est, out_path, chart_rel, args.vendor)
     log = history.record(est, outcome=args.outcome, used_effort=args.used_effort)
 
     print(
@@ -375,6 +391,12 @@ def main(argv: list[str] | None = None) -> int:
         "--explain",
         action="store_true",
         help="full signal-by-signal breakdown and raw scores -- for debugging the classifier",
+    )
+    a.add_argument(
+        "--vendor",
+        choices=list(vendors.VENDORS),
+        default=None,
+        help="show only this vendor's model ids (default: every vendor)",
     )
     a.add_argument("--out", default=None, help="markdown path (default: reports/advice_*.md)")
     a.add_argument("--chart", default=None, help="chart path (default: reports/advice_*.png)")

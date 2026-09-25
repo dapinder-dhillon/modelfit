@@ -115,21 +115,23 @@ LEVERS: dict[str, str] = {
     "BOTH": "BOTH — plus human review",
 }
 
-# (start_model, start_effort, escalate_to). Model ids come from providers.MODELS.
-# escalate_to is a full actionable phrase, not a bare "model @ effort" label --
-# it's printed as "If it fails: <escalate_to>", so it has to read as an instruction.
+# (start_tier, start_effort, escalate_to). Tiers, not model ids: a task's wording
+# says nothing about which vendor you use, so neither does the verdict --
+# vendors.py turns a tier into a model id. escalate_to is printed as "If it
+# fails: <escalate_to>", so it has to read as an instruction; a {tier} inside it
+# is filled with that tier's model id(s) at render time (vendors.fill).
 PLANS: dict[str, tuple[str, str, str | None]] = {
-    "NEITHER": ("claude-haiku-4-5", "off", None),
-    "EFFORT": ("claude-sonnet-5", "low", "raise effort to high before switching model"),
+    "NEITHER": ("small", "off", None),
+    "EFFORT": ("mid", "low", "raise effort to high before switching model"),
     "MODEL": (
-        "claude-sonnet-5",
+        "mid",
         "high",
         # Deliberately keeps effort at "high", unchanged from the start config --
         # the whole claim of this quadrant is "turn up the model, not effort", so
         # the escalation has to actually move only that one dial to back it up.
-        "switch to opus-4-8, same high effort",
+        "switch to {large}, same high effort",
     ),
-    "BOTH": ("claude-opus-4-8", "high", "have a human review it — don't use it unattended"),
+    "BOTH": ("large", "high", "have a human review it — don't use it unattended"),
 }
 
 _TEACH: dict[str, str] = {
@@ -200,7 +202,7 @@ class Estimate:
     quadrant: str
     shape: str
     lever: str
-    start_model: str
+    start_tier: str  # small | mid | large -- vendors.py maps it to a model id
     start_effort: str
     escalate_to: str | None
     reasons: list[str]
@@ -211,7 +213,7 @@ class Estimate:
 
 
 def plan_for(quadrant: str) -> tuple[str, str, str | None]:
-    """(start_model, start_effort, escalate_to) for a quadrant. Where to *start* —
+    """(start_tier, start_effort, escalate_to) for a quadrant. Where to *start* —
     deliberately the cheapest config that has a real chance, not the safest one."""
     return PLANS[quadrant]
 
@@ -451,7 +453,7 @@ def estimate(text: str) -> Estimate:
     confidence, runner_up, hidden = _confidence(
         quadrant, effort, model, breadth, any_signal, len(judgement), bool(domain_words)
     )
-    start_model, start_effort, escalate_to = plan_for(quadrant)
+    start_tier, start_effort, escalate_to = plan_for(quadrant)
 
     return Estimate(
         text=text.strip(),
@@ -460,7 +462,7 @@ def estimate(text: str) -> Estimate:
         quadrant=quadrant,
         shape=SHAPES[quadrant],
         lever=LEVERS[quadrant],
-        start_model=start_model,
+        start_tier=start_tier,
         start_effort=start_effort,
         escalate_to=escalate_to,
         reasons=reasons,

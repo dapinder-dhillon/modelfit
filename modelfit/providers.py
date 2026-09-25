@@ -39,11 +39,18 @@ EFFORT_BUDGETS: dict[str, int] = {
 
 # $ per MILLION tokens (input, output). Thinking tokens are billed as output.
 # >>> THESE ARE PLACEHOLDERS. Confirm current pricing before you trust the $ figures. <<<
+# The rows used by vendors.VENDORS were copied from each vendor's model docs on
+# 2026-09-25 so the advise chart compares vendors on the same footing; the
+# others are older and unchecked. Prices change -- the method is what lasts.
 PRICING: dict[str, tuple[float, float]] = {
-    "claude-haiku-4-5": (0.80, 4.0),
-    "claude-sonnet-5": (3.0, 15.0),
+    "claude-haiku-4-5": (1.0, 5.0),
+    "claude-sonnet-5": (2.0, 10.0),
     "claude-opus-4-8": (5.0, 25.0),
+    "claude-opus-5-5": (4.0, 20.0),
     "claude-fable-5": (10.0, 50.0),
+    "gpt-6-luna": (0.10, 0.50),
+    "gpt-6-sol": (2.0, 10.0),
+    "gpt-6-astra": (10.0, 50.0),
 }
 
 
@@ -292,8 +299,8 @@ def call_cli(
     # Honest fallback: if the CLI gave us token counts but no direct dollar
     # figure, estimate cost the same way --mock/--real do, PROVIDED we have a
     # placeholder price for this model. A model outside our PRICING table (e.g.
-    # a non-Anthropic id run via codex) has no knowable cost here -- leave it
-    # None rather than guess or crash on a missing PRICING entry.
+    # an older GPT id run via codex) has no knowable cost here -- leave it None
+    # rather than guess or crash on a missing PRICING entry.
     if (
         call.error is None
         and call.cost_usd is None

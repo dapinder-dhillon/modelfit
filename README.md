@@ -18,13 +18,14 @@ tasks, otherwise a cheaper one."* It's useless because it never says how you'd
 
 <img src="media/demo.gif" alt="modelfit advise, default then --short then --explain, then modelfit eval" width="80%" />
 
-**Who this is for:** developers calling Claude programmatically — direct
-API/SDK calls, or an agent CLI (`claude`, `codex`) that exposes its own effort
-flag. "Effort" here is Anthropic's `thinking` parameter (or a CLI's own
-reasoning-effort flag) — a real, settable dial in code, but **not** something
-Claude Desktop or claude.ai chat expose to you. If you're chatting with Claude
-through either of those, there's no lever in that UI for this tool's
-recommendations to turn — they're not for you (yet).
+**Who this is for:** developers calling Claude or OpenAI models
+programmatically — direct API/SDK calls, or an agent CLI (`claude`, `codex`)
+that exposes its own effort flag. "Effort" here is the reasoning setting you
+pass in code (Anthropic's thinking/effort settings, OpenAI's reasoning effort)
+or a CLI's own flag — a real, settable dial, but **not** something Claude
+Desktop or claude.ai chat expose to you. If you're chatting with a model
+through a consumer app, there may be no lever in that UI for this tool's
+recommendations to turn.
 
 ## See the two dials in practice
 
@@ -33,8 +34,9 @@ A payment bug involving two workers calls for domain expertise:
 ```
 $ modelfit advise "Fix an intermittent bug where two workers process the same payment webhook at once and charge the customer twice. Keep retries safe."
 
-START       sonnet-5 / high effort
-IF NEEDED   switch to opus-4-8, same high effort
+START       Anthropic  claude-sonnet-5 / high effort
+            OpenAI     gpt-6-sol / high effort
+IF NEEDED   switch to claude-opus-5-5 (Anthropic) or gpt-6-astra (OpenAI), same high effort
 SIGNAL      high (clear read of your wording)
 
 WHY         your wording has "at once" → needs real domain expertise, not just more thinking
@@ -47,14 +49,16 @@ guessing:
 ```
 $ modelfit advise "Store user passwords in the users table."
 
-START       haiku-4-5 / no extra thinking
+START       Anthropic  claude-haiku-4-5 / no extra thinking
+            OpenAI     gpt-6-luna / no extra thinking
 SIGNAL      low (just a guess — see below)
 
-BLIND SPOT  Nothing in the wording signals difficulty. That is this tool's blind
-            spot: crypto, SQL tuning, timezones / DST, concurrency can all look
-            simple from the wording alone. If this task is actually one of
-            those, start with sonnet-5 at high effort yourself instead of the
-            suggestion above.
+BLIND SPOT      Nothing in the wording signals difficulty. That is this tool's blind spot:
+                crypto, SQL tuning, timezones / DST, concurrency can all look
+                simple from the wording alone. If this task is actually one of
+                those, start with claude-sonnet-5 (Anthropic) or gpt-6-sol
+                (OpenAI) at high effort yourself instead of the suggestion
+                above.
 ```
 
 A codebase-wide refactor is broad enough that the tool won't commit to a single
@@ -63,20 +67,39 @@ answer — it shows the runner-up instead of guessing which one is right:
 ```
 $ modelfit advise "Refactor the entire tagging module across the codebase and update all call sites."
 
-START       sonnet-5 / low effort
+START       Anthropic  claude-sonnet-5 / low effort
+            OpenAI     gpt-6-sol / low effort
 IF NEEDED   raise effort to high before switching model
 SIGNAL      medium (could be read another way)
 
 WHY         your wording has "refactor" and "entire" → spans a lot of ground, self-directed
 
-SECOND OPINION  could be BOTH instead. If it drops conditions and makes wrong
-                choices, treat it as BOTH: use a bigger model, high effort, and
-                review the result yourself.
+SECOND OPINION  could be BOTH instead. If it drops conditions and makes wrong choices, treat it
+                as BOTH: use a bigger model, high effort, and review the result
+                yourself.
+```
+
+Only interested in one vendor? `--vendor anthropic` or `--vendor openai` shows
+just that one:
+
+```
+$ modelfit advise "Review this IAM policy and explain the security risks." --vendor openai
+
+START       gpt-6-sol / high effort
+IF NEEDED   switch to gpt-6-astra, same high effort
+SIGNAL      high (clear read of your wording)
+
+WHY         your wording has "review" and "security" → needs judgement the prompt doesn't
+            provide
 ```
 
 `advise` runs locally and makes no model call. It reads the wording of a task,
 so its suggestion is a starting point, not a measured chance of success.
-`SIGNAL` describes how clearly the wording matched its rules.
+`SIGNAL` describes how clearly the wording matched its rules. The verdict itself
+is a model *tier* (small, mid or large) plus an effort level — nothing in a
+task's wording says which vendor you use — and each vendor's model for that tier
+is shown alongside. Tiers line up only roughly across vendors; `run` is how you
+find out which one is actually cheaper for your tasks.
 
 To find out what works for your project, replace the bundled examples with
 representative tasks and verifiers. `run --mock` demonstrates the report with
@@ -136,6 +159,7 @@ poetry install --with dev --extras all
 modelfit advise "<task text>"                    # default: leads with the action
 modelfit advise "<task text>" --short             # one line, for the 50th call today
 modelfit advise "<task text>" --explain           # signal-by-signal breakdown, raw scores
+modelfit advise "<task text>" --vendor openai     # one vendor's models only (default: both)
 modelfit advise "<task text>" --outcome pass --used-effort low   # record what happened
 modelfit advise "<task text>" --out FILE --chart FILE            # write paths (default: reports/advice_*)
 ```
@@ -231,9 +255,9 @@ want them gone too.
 
 `modelfit advise` scans your task description for wording that suggests
 constraints, ordered steps, domain expertise, breadth, or several
-requirements. Fixed rules turn those signals into a suggested model and effort
-level. The output shows the wording it used, so you can challenge its
-reasoning.
+requirements. Fixed rules turn those signals into a suggested model tier and
+effort level, shown as the matching Claude and OpenAI model. The output shows
+the wording it used, so you can challenge its reasoning.
 
 The advisor runs locally and makes no model call. It cannot understand
 unstated difficulty: a short request may hide a hard SQL, security, or
