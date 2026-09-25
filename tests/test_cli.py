@@ -71,7 +71,8 @@ def test_advise_default_leads_with_the_action(tmp_path, monkeypatch, capsys):
     out, err = capsys.readouterr()
     assert rc == 0
     assert "START" in out
-    assert "sonnet-5 / low effort" in out
+    assert "claude-sonnet-5 / low effort" in out
+    assert "gpt-6-sol / low effort" in out
     assert "IF NEEDED" in out
     assert "SIGNAL" in out
     assert "WHY" in out
@@ -105,8 +106,49 @@ def test_advise_short_is_one_line(tmp_path, monkeypatch, capsys):
     assert rc == 0
     lines = [line for line in out.splitlines() if line.strip()]
     assert len(lines) == 1
-    assert "sonnet-5/low" in lines[0]
+    assert "claude-sonnet-5 or gpt-6-sol @ low" in lines[0]
     assert "[high]" in lines[0]
+
+
+def test_advise_shows_every_vendor_by_default_and_one_with_vendor(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MODELFIT_HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_path)
+    task = "Review this IAM policy and explain the security risks."
+
+    assert main(["advise", task]) == 0
+    both = capsys.readouterr().out
+    assert "claude-sonnet-5 / high effort" in both
+    assert "gpt-6-sol / high effort" in both
+    assert "claude-opus-5-5 (Anthropic) or gpt-6-astra (OpenAI)" in both
+
+    assert main(["advise", task, "--vendor", "openai"]) == 0
+    one = capsys.readouterr().out
+    assert "gpt-6-sol / high effort" in one
+    assert "switch to gpt-6-astra, same high effort" in one
+    assert "claude" not in one
+
+
+_ONE_PER_PATH = [
+    "Add a .gitignore file for a Node project.",  # blind spot; runner-up MODEL
+    "Fix this retry helper so it never sleeps after the final attempt.",  # EFFORT
+    "Review this IAM policy and explain the security risks.",  # MODEL; escalation names a tier
+    "Review this configuration.",  # hedged MODEL
+    "Refactor the entire codebase so no module imports the legacy client, then update all "
+    "call sites and the tests.",  # BOTH
+]
+
+
+@pytest.mark.parametrize("vendor", [None, "anthropic", "openai"])
+def test_no_view_leaks_an_unfilled_tier_placeholder(vendor, capsys):
+    """Plans name a tier as `{large}`; every rendering path must fill it in.
+    Checked per view for the same reason as the blind-spot test above."""
+    for text in _ONE_PER_PATH:
+        est = advisor.estimate(text)
+        _print_compact(est, vendor)
+        _print_short(est, vendor)
+        _print_explain(est, vendor)
+        rendered = capsys.readouterr().out + advice_report.render(est, vendor=vendor)
+        assert "{" not in rendered, f"unfilled placeholder for {text!r} (vendor={vendor})"
 
 
 def test_advise_explain_has_the_full_breakdown(tmp_path, monkeypatch, capsys):

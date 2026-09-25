@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from modelfit import advice_report, advisor, history, project
+from modelfit import advice_report, advisor, history, project, vendors
 from modelfit.evalset import evaluate, load_cases
 
 _CASES = Path(__file__).resolve().parent.parent / "eval" / "advisor_cases.yaml"
@@ -44,13 +44,36 @@ class TestCanonicalClassifications:
     def test_breadth_plus_conditions_is_both(self) -> None:
         assert advisor.estimate(BOTH_TASK).quadrant == "BOTH"
 
-    def test_plan_uses_real_model_ids(self) -> None:
-        from modelfit.providers import EFFORT_BUDGETS, MODELS
+
+class TestVendors:
+    def test_every_plan_is_settable_on_every_vendor(self) -> None:
+        """The verdict names a tier; each vendor has to be able to run it as-is.
+        gpt-6-astra has no "none" reasoning level, so a plan that ever put the
+        large tier at "off" would recommend a config that can't be set."""
+        from modelfit.providers import EFFORT_BUDGETS
 
         for quadrant in advisor.SHAPES:
-            model, effort, _ = advisor.plan_for(quadrant)
-            assert model in MODELS
+            tier, effort, _ = advisor.plan_for(quadrant)
+            assert tier in vendors.TIERS
             assert effort in EFFORT_BUDGETS
+            for key, v in vendors.VENDORS.items():
+                assert (
+                    (key, tier, effort) not in vendors.UNSETTABLE
+                ), f"{quadrant} asks {v.models[tier]} for effort {effort!r}, which it can't set"
+
+    def test_every_vendor_model_has_a_placeholder_price(self) -> None:
+        from modelfit.providers import PRICING
+
+        for v in vendors.VENDORS.values():
+            for model in v.models.values():
+                assert model in PRICING, f"{model} has no PRICING row for the advise chart"
+
+    def test_one_vendor_reads_as_a_plain_id_several_are_labelled(self) -> None:
+        one = vendors.chosen("openai")
+        both = vendors.chosen(None)
+        assert vendors.names("mid", one) == "gpt-6-sol"
+        assert vendors.names("mid", both) == "claude-sonnet-5 (Anthropic) or gpt-6-sol (OpenAI)"
+        assert vendors.fill("switch to {large}", one) == "switch to gpt-6-astra"
 
 
 class TestExplainsItself:
@@ -185,7 +208,7 @@ class TestArtifacts:
     def test_projection_is_ordered_by_effort_for_an_effort_task(self) -> None:
         est = advisor.estimate(EFFORT_TASK)
         probs = [
-            project.projected_cell(est.text, "claude-sonnet-5", effort, est.quadrant)[0]
+            project.projected_cell(est.text, "claude-sonnet-5", "mid", effort, est.quadrant)[0]
             for effort in ("off", "low", "high")
         ]
         assert probs[0] < probs[1] < probs[2]

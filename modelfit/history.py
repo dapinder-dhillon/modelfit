@@ -70,7 +70,7 @@ def record(
             "runner_up": est.runner_up,
             "effort_score": est.effort_score,
             "model_score": est.model_score,
-            "start_model": est.start_model,
+            "start_tier": est.start_tier,
             "start_effort": est.start_effort,
             "hidden_knowledge_warning": est.hidden_knowledge_warning,
             "outcome": outcome,
