@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from modelfit import providers
@@ -13,6 +14,47 @@ _ONE_TASK = _ALL_TASKS[:1]
 
 
 class TestCacheAdditivity:
+    def test_mock_results_are_not_reused_as_real_results(self, tmp_path, monkeypatch):
+        cache_path = str(tmp_path / "results.json")
+        calls = []
+
+        def fake_real_call(model, effort, prompt, max_tokens):
+            calls.append(prompt)
+            return providers.Call(
+                text="def backoff_delays(attempts): return [2**i for i in range(attempts - 1)]",
+                in_tokens=10,
+                out_tokens=20,
+                latency_s=0.1,
+            )
+
+        monkeypatch.setattr(providers, "call_real", fake_real_call)
+        mock_result = run(
+            _ONE_TASK, ["claude-haiku-4-5"], ["off"], mode="mock", cache_path=cache_path
+        )
+        real_result = run(
+            _ONE_TASK, ["claude-haiku-4-5"], ["off"], mode="real", cache_path=cache_path
+        )
+
+        assert len(calls) == 1
+        assert mock_result[0].detail.startswith("mock ")
+        assert real_result[0].detail == "tests passed"
+
+    def test_changed_task_is_recomputed(self, tmp_path, monkeypatch):
+        cache_path = str(tmp_path / "results.json")
+        calls = []
+        real_call_mock = providers.call_mock
+
+        def counting_call_mock(model, effort, prompt, max_tokens, quadrant, task_id, trial=0):
+            calls.append(prompt)
+            return real_call_mock(model, effort, prompt, max_tokens, quadrant, task_id, trial)
+
+        monkeypatch.setattr(providers, "call_mock", counting_call_mock)
+        changed_task = replace(_ONE_TASK[0], prompt=_ONE_TASK[0].prompt + " More detail.")
+        run(_ONE_TASK, ["claude-haiku-4-5"], ["off"], mode="mock", cache_path=cache_path)
+        run([changed_task], ["claude-haiku-4-5"], ["off"], mode="mock", cache_path=cache_path)
+
+        assert len(calls) == 2
+
     def test_rerun_does_not_recompute_existing_cells(self, tmp_path, monkeypatch):
         cache_path = tmp_path / "results.json"
         calls: list[str] = []

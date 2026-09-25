@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from dataclasses import asdict, dataclass
@@ -91,16 +92,16 @@ def _save_cache(cache_file: Path | None, cache: dict[str, dict]) -> None:
 
 
 def _cache_key(
-    task_id: str,
+    task: Task,
     model: str,
     effort: str,
     trial: int,
     mode: str = MOCK_MODE,
     agent: str | None = None,
 ) -> str:
-    if mode == CLI_MODE:
-        return f"{task_id}|{model}|{effort}|{trial}|cli|{agent}"
-    return f"{task_id}|{model}|{effort}|{trial}"
+    task_definition = json.dumps(asdict(task), sort_keys=True, default=str)
+    task_fingerprint = hashlib.sha256(task_definition.encode()).hexdigest()
+    return json.dumps([mode, agent, task_fingerprint, model, effort, trial])
 
 
 def _cached_or_computed_result(
@@ -113,7 +114,7 @@ def _cached_or_computed_result(
     cache: dict[str, dict],
 ) -> Result:
     cache_key = _cache_key(
-        task_id=task.id, model=model, effort=effort, trial=trial, mode=mode, agent=agent
+        task=task, model=model, effort=effort, trial=trial, mode=mode, agent=agent
     )
     if cache_key in cache:
         return Result(**cache[cache_key])

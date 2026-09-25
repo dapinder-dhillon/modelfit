@@ -18,14 +18,12 @@ tasks, otherwise a cheaper one."* It's useless because it never says how you'd
 
 <img src="media/demo.gif" alt="modelfit advise, default then --short then --explain, then modelfit eval" width="80%" />
 
-**Who this is for:** developers calling Claude or OpenAI models
-programmatically — direct API/SDK calls, or an agent CLI (`claude`, `codex`)
-that exposes its own effort flag. "Effort" here is the reasoning setting you
-pass in code (Anthropic's thinking/effort settings, OpenAI's reasoning effort)
-or a CLI's own flag — a real, settable dial, but **not** something Claude
-Desktop or claude.ai chat expose to you. If you're chatting with a model
-through a consumer app, there may be no lever in that UI for this tool's
-recommendations to turn.
+**Who this is for:** anyone who picks an AI model, whether in a desktop app, a
+CLI, or code. `advise` only needs a terminal: run it on your task, then set the
+model (and effort, if your app has that setting) wherever you actually ask.
+Every app lets you choose the model, but not all expose a thinking or effort
+setting; where yours doesn't, act on the model half. `run`, which measures
+models on your own tasks, needs API or CLI access.
 
 ## See the two dials in practice
 
